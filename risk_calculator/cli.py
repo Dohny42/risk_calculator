@@ -1,6 +1,7 @@
-# risk_calculator/cli.py
+from pathlib import Path
 
 from risk_calculator.portfolio import Portfolio, Position
+from risk_calculator.storage import load_portfolio, save_portfolio
 
 
 def print_help() -> None:
@@ -10,6 +11,8 @@ Commands:
   update SYMBOL PRICE         Update price of existing position
   remove SYMBOL               Remove a position
   show                        Show current portfolio
+  save FILEPATH               Save portfolio to SQLite file
+  load FILEPATH               Load portfolio from SQLite file
   help                        Show this help
   quit                        Exit
 """)
@@ -67,6 +70,24 @@ def main() -> None:
                     continue
                 portfolio.remove_position(parts[1])
                 print("OK")
+
+            elif command == "save":
+                if len(parts) != 2:
+                    print("Usage: save FILEPATH")
+                    continue
+                path = Path(parts[1])
+                save_portfolio(portfolio, path)
+                print(f"Saved to {path}")
+
+            elif command == "load":
+                if len(parts) != 2:
+                    print("Usage: load FILEPATH")
+                    continue
+                path = Path(parts[1])
+                portfolio = load_portfolio(path)
+                print(f"Loaded from {path}")
+                print(portfolio)
+                print()
 
             else:
                 print("Unknown command. Type 'help'")

@@ -1,6 +1,6 @@
 import pytest
 
-from risk_calculator.portfolio import Portfolio, Position
+from risk_calculator.portfolio import MARGIN_RATES, Portfolio, Position
 
 
 def test_position_value():
@@ -25,14 +25,8 @@ def test_add_positions_and_total():
 
 def test_cannot_add_zero_quantity():
     portfolio = Portfolio()
-    with pytest.raises(ValueError, match="Quantity cannot be zero or negative"):
+    with pytest.raises(ValueError, match="Quantity cannot be zero"):
         portfolio.add_position(Position("AAPL", 0, 150.0))
-
-
-def test_cannot_add_negative_quantity():
-    portfolio = Portfolio()
-    with pytest.raises(ValueError, match="Quantity cannot be zero or negative"):
-        portfolio.add_position(Position("AAPL", -5, 150.0))
 
 
 def test_cannot_add_negative_price():
@@ -118,5 +112,95 @@ def test_add_duplicate_position_with_negative_price():
 def test_add_duplicate_position_with_zero_quantity():
     portfolio = Portfolio()
     portfolio.add_position(Position("AAPL", 10, 150.0))
-    with pytest.raises(ValueError, match="Quantity cannot be zero or negative"):
+    with pytest.raises(ValueError, match="Quantity cannot be zero   "):
         portfolio.add_position(Position("AAPL", 0, 155.0))
+
+
+def test_add_duplicate_position_negative_quantity():
+    portfolio = Portfolio()
+    portfolio.add_position(Position("AAPL", 10, 150.0))
+    portfolio.add_position(Position("AAPL", -5, 155.0))
+
+    pos = portfolio.get_position("AAPL")
+    assert pos is not None
+    assert pos.quantity == 5
+    assert pos.price == 155.0
+    assert pos.value() == 775.0
+
+
+def test_add_duplicate_position_negative_quantity_to_zero():
+    portfolio = Portfolio()
+    portfolio.add_position(Position("AAPL", 10, 150.0))
+    portfolio.add_position(Position("AAPL", -10, 155.0))
+
+    pos = portfolio.get_position("AAPL")
+    assert pos is None
+    assert len(portfolio.positions) == 0
+
+
+# ========== Tests for instrument type validation ==========
+
+
+def test_add_position_with_valid_instrument_type():
+    portfolio = Portfolio()
+    portfolio.add_position(Position("AAPL", 10, 150.0, "future"))
+    pos = portfolio.get_position("AAPL")
+    assert pos is not None
+    assert pos.instrument_type == "future"
+
+
+def test_add_position_with_invalid_instrument_type():
+    portfolio = Portfolio()
+    with pytest.raises(ValueError, match="Invalid instrument type: invalid_type"):
+        portfolio.add_position(Position("AAPL", 10, 150.0, "invalid_type"))
+
+
+def test_add_position_duplicate_with_same_instrument_type():
+    portfolio = Portfolio()
+    portfolio.add_position(Position("AAPL", 10, 150.0, "future"))
+    portfolio.add_position(Position("AAPL", 5, 155.0, "future"))
+
+    pos = portfolio.get_position("AAPL")
+    assert pos is not None
+    assert pos.quantity == 15
+    assert pos.price == 155.0
+    assert pos.instrument_type == "future"
+
+
+def test_add_position_duplicate_with_different_instrument_type():
+    portfolio = Portfolio()
+    portfolio.add_position(Position("AAPL", 10, 150.0, "future"))
+    with pytest.raises(ValueError, match="Cannot merge positions with different instrument types"):
+        portfolio.add_position(Position("AAPL", 5, 155.0, "equity"))
+
+
+# ========= Tests for margin calculation ==========
+
+
+def test_margin_calculation_equity():
+    pos = Position("AAPL", 10, 150.0, "equity")
+    expected_margin = abs(pos.value()) * MARGIN_RATES["equity"]
+    assert pos.margin() == expected_margin
+
+
+def test_margin_calculation_future():
+    pos = Position("ES", 5, 2000.0, "future")
+    expected_margin = abs(pos.value()) * MARGIN_RATES["future"]
+    assert pos.margin() == expected_margin
+
+
+def test_total_margin_calculation():
+    portfolio = Portfolio()
+    portfolio.add_position(Position("AAPL", 10, 150.0, "equity"))
+    portfolio.add_position(Position("ES", 5, 2000.0, "future"))
+
+    expected_total_margin = (
+        abs(10 * 150.0) * MARGIN_RATES["equity"] + abs(5 * 2000.0) * MARGIN_RATES["future"]
+    )
+    assert portfolio.total_margin() == expected_total_margin
+
+
+def test_margin_calculation_negative_quantity():
+    pos = Position("AAPL", -10, 150.0, "equity")
+    expected_margin = abs(pos.value()) * MARGIN_RATES["equity"]
+    assert pos.margin() == expected_margin

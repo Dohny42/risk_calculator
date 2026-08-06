@@ -15,7 +15,8 @@ def save_portfolio(portfolio: Portfolio, db_path: Path) -> None:
             CREATE TABLE IF NOT EXISTS positions (
                 symbol   TEXT PRIMARY KEY,
                 quantity REAL NOT NULL,
-                price    REAL NOT NULL
+                price    REAL NOT NULL,
+                instrument_type TEXT NOT NULL
             )
         """)
 
@@ -25,8 +26,8 @@ def save_portfolio(portfolio: Portfolio, db_path: Path) -> None:
         # Insert current positions
         for position in portfolio.positions.values():
             cursor.execute(
-                "INSERT INTO positions (symbol, quantity, price) VALUES (?, ?, ?)",
-                (position.symbol, position.quantity, position.price),
+                "INSERT INTO positions (symbol, quantity, price, instrument_type) VALUES (?, ?, ?, ?)",
+                (position.symbol, position.quantity, position.price, position.instrument_type),
             )
 
         conn.commit()
@@ -43,13 +44,13 @@ def load_portfolio(db_path: Path) -> Portfolio:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("SELECT symbol, quantity, price FROM positions")
+            cursor.execute("SELECT symbol, quantity, price, instrument_type FROM positions")
             rows = cursor.fetchall()
         except sqlite3.OperationalError:
             # Table does not exist yet
             return portfolio
 
-        for symbol, quantity, price in rows:
-            portfolio.add_position(Position(symbol, quantity, price))
+        for symbol, quantity, price, instrument_type in rows:
+            portfolio.add_position(Position(symbol, quantity, price, instrument_type))
 
     return portfolio
