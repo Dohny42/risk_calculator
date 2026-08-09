@@ -94,3 +94,36 @@ class Portfolio:
 
     def __repr__(self) -> str:
         return f"Portfolio(positions={self.positions!r})"
+
+
+def apply_stress_scenario(
+    portfolio: Portfolio,
+    price_changes: dict[str, float],
+) -> Portfolio:
+    """
+    Apply a stress scenario and return a new portfolio.
+
+    price_changes example: {"AAPL": -0.20, "MSFT": 0.05}
+    Missing symbols are left unchanged.
+    Prices are not allowed to go negative (clamped to 0).
+    """
+    unknown_symbols = sorted(set(price_changes.keys()) - set(portfolio.positions.keys()))
+    if unknown_symbols:
+        raise ValueError(f"Unknown symbols in price changes: {unknown_symbols}")
+
+    stressed = Portfolio()
+
+    for symbol, change in price_changes.items():
+        position = portfolio.positions[symbol]
+        new_price = position.price * (1.0 + change)
+        new_price = max(new_price, 0.0)
+        stressed.add_position(
+            Position(
+                symbol=symbol,
+                quantity=position.quantity,
+                price=new_price,
+                instrument_type=position.instrument_type,
+            )
+        )
+
+    return stressed
