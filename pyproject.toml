@@ -6,7 +6,11 @@ readme = "README.md"
 authors = [{ name = "Dohny42", email = "dohny42@gmail.com" }]
 requires-python = ">=3.14"
 dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "pydantic>=2.13.4",
     "pytest>=9.1.1",
+    "uvicorn>=0.52.1",
 ]
 
 [build-system]
@@ -17,14 +21,13 @@ build-backend = "uv_build"
 module-root = ""
 
 [tool.uv.workspace]
-members = [
-    ".",
-]
+members = ["."]
 
 [tool.uv.sources]
 risk-calculator = { workspace = true, editable = true }
 
 [dependency-groups]
-dev = [
-    "risk-calculator",
-]
+dev = ["risk-calculator"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.params.Depends"]
