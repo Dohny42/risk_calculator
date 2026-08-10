@@ -1,18 +1,16 @@
-from pathlib import Path
-
 from risk_calculator.portfolio import Portfolio, Position, apply_stress_scenario
-from risk_calculator.storage import load_portfolio, save_portfolio
+from risk_calculator.repository import PortfolioRepository
 
 
 class PortfolioService:
-    def __init__(self, db_path: Path = Path("portfolio.db")):
-        self.db_path = Path(db_path)
+    def __init__(self, repository: PortfolioRepository):
+        self.repository = repository
 
     def get_portfolio(self) -> Portfolio:
-        return load_portfolio(self.db_path)
+        return self.repository.get()
 
     def save(self, portfolio: Portfolio) -> None:
-        save_portfolio(portfolio, self.db_path)
+        self.repository.save(portfolio)
 
     def add_position(self, position: Position) -> Portfolio:
         portfolio = self.get_portfolio()

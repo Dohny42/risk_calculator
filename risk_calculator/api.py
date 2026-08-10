@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException
 
 from risk_calculator.portfolio import Portfolio, Position
@@ -14,7 +16,10 @@ app = FastAPI(title="Risk Calculator API")
 
 def get_portfolio_service() -> PortfolioService:
     """Default dependency. In tests we will override this."""
-    return PortfolioService()
+    from risk_calculator.repository import SQLitePortfolioRepository
+
+    repository = SQLitePortfolioRepository(db_path=Path("portfolio.db"))
+    return PortfolioService(repository)
 
 
 def to_portfolio_response(portfolio: Portfolio) -> PortfolioResponse:

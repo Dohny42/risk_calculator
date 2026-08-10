@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from risk_calculator.api import app, get_portfolio_service
+from risk_calculator.repository import SQLitePortfolioRepository
 from risk_calculator.service import PortfolioService
 
 
@@ -17,7 +18,8 @@ def temp_db_path(tmp_path: Path) -> Path:
 def test_client(temp_db_path: Path) -> Generator[TestClient]:
     # Override the dependency to use a temporary database for testing
     def override_get_portfolio_service() -> PortfolioService:
-        return PortfolioService(db_path=temp_db_path)
+        repository = SQLitePortfolioRepository(db_path=temp_db_path)
+        return PortfolioService(repository)
 
     app.dependency_overrides[get_portfolio_service] = override_get_portfolio_service
     with TestClient(app) as client:
