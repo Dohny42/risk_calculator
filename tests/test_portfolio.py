@@ -1,10 +1,19 @@
 import pytest
 
-from risk_calculator.portfolio import MARGIN_RATES, Portfolio, Position, apply_stress_scenario
+from risk_calculator.domain.instrument import Instrument
+from risk_calculator.domain.portfolio import Portfolio, Position, apply_stress_scenario
 
 
-def test_position_value():
-    pos = Position("AAPL", 10, 150.0)
+@pytest.fixture
+def instruments_dict() -> dict[str, Instrument]:
+    return {
+        "AAPL": Instrument("AAPL", "equity", 0.3, "Apple Inc."),
+        "MSFT": Instrument("MSFT", "equity", 0.3, "Microsoft Corp."),
+    }
+
+
+def test_position_value(instruments_dict: dict[str, Instrument]):
+    pos = Position(instruments_dict["AAPL"], 10, 150.0)
     assert pos.value() == 1500.0
 
 
@@ -14,31 +23,31 @@ def test_empty_portfolio():
     assert portfolio.positions == {}
 
 
-def test_add_positions_and_total():
+def test_add_positions_and_total(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
-    portfolio.add_position(Position("MSFT", 5, 300.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["MSFT"], 5, 300.0))
 
     assert len(portfolio.positions) == 2
     assert portfolio.total_value() == 3000.0
 
 
-def test_cannot_add_zero_quantity():
+def test_cannot_add_zero_quantity(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
     with pytest.raises(ValueError, match="Quantity cannot be zero"):
-        portfolio.add_position(Position("AAPL", 0, 150.0))
+        portfolio.add_position(Position(instruments_dict["AAPL"], 0, 150.0))
 
 
-def test_cannot_add_negative_price():
+def test_cannot_add_negative_price(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
     with pytest.raises(ValueError, match="Price cannot be negative"):
-        portfolio.add_position(Position("AAPL", 10, -50.0))
+        portfolio.add_position(Position(instruments_dict["AAPL"], 10, -50.0))
 
 
-def test_add_duplicate_position():
+def test_add_duplicate_position(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
-    portfolio.add_position(Position("AAPL", 5, 155.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 5, 155.0))
 
     pos = portfolio.get_position("AAPL")
     assert pos is not None
@@ -53,9 +62,9 @@ def test_get_nonexistent_position():
     assert pos is None
 
 
-def test_remove_position_positive():
+def test_remove_position_positive(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
     portfolio.remove_position("AAPL")
 
     assert len(portfolio.positions) == 0
@@ -68,18 +77,18 @@ def test_remove_position_negative():
         portfolio.remove_position("AAPL")
 
 
-def test_total_value_after_removal():
+def test_total_value_after_removal(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
-    portfolio.add_position(Position("MSFT", 5, 300.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["MSFT"], 5, 300.0))
     portfolio.remove_position("AAPL")
 
     assert portfolio.total_value() == 1500.0
 
 
-def test_update_price_existing_positive():
+def test_update_price_existing_positive(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
     portfolio.update_price("AAPL", 160.0)
 
     pos = portfolio.get_position("AAPL")
@@ -89,9 +98,9 @@ def test_update_price_existing_positive():
     assert portfolio.total_value() == 1600.0
 
 
-def test_update_price_existing_negative():
+def test_update_price_existing_negative(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
     with pytest.raises(ValueError, match="Price cannot be negative"):
         portfolio.update_price("AAPL", -10.0)
 
@@ -102,24 +111,24 @@ def test_update_price_nonexistent():
         portfolio.update_price("AAPL", 160.0)
 
 
-def test_add_duplicate_position_with_negative_price():
+def test_add_duplicate_position_with_negative_price(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
     with pytest.raises(ValueError, match="Price cannot be negative"):
-        portfolio.add_position(Position("AAPL", 5, -155.0))
+        portfolio.add_position(Position(instruments_dict["AAPL"], 5, -155.0))
 
 
-def test_add_duplicate_position_with_zero_quantity():
+def test_add_duplicate_position_with_zero_quantity(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
     with pytest.raises(ValueError, match="Quantity cannot be zero"):
-        portfolio.add_position(Position("AAPL", 0, 155.0))
+        portfolio.add_position(Position(instruments_dict["AAPL"], 0, 155.0))
 
 
-def test_add_duplicate_position_negative_quantity():
+def test_add_duplicate_position_negative_quantity(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
-    portfolio.add_position(Position("AAPL", -5, 155.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], -5, 155.0))
 
     pos = portfolio.get_position("AAPL")
     assert pos is not None
@@ -128,10 +137,10 @@ def test_add_duplicate_position_negative_quantity():
     assert pos.value() == 775.0
 
 
-def test_add_duplicate_position_negative_quantity_to_zero():
+def test_add_duplicate_position_negative_quantity_to_zero(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
-    portfolio.add_position(Position("AAPL", -10, 155.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], -10, 155.0))
 
     pos = portfolio.get_position("AAPL")
     assert pos is None
@@ -140,81 +149,82 @@ def test_add_duplicate_position_negative_quantity_to_zero():
 
 # ========== Tests for instrument type validation ==========
 
+# ========== Tests for instrument type validation ==========
 
-def test_add_position_with_valid_instrument_type():
+
+def test_add_position_with_valid_instrument_type(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "future"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
     pos = portfolio.get_position("AAPL")
     assert pos is not None
-    assert pos.instrument_type == "future"
+    assert pos.instrument.instrument_type == "equity"
 
 
-def test_add_position_with_invalid_instrument_type():
+def test_add_position_duplicate_with_same_instrument_type(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    with pytest.raises(ValueError, match="Invalid instrument type: invalid_type"):
-        portfolio.add_position(Position("AAPL", 10, 150.0, "invalid_type"))  # ty: ignore[invalid-argument-type]
-
-
-def test_add_position_duplicate_with_same_instrument_type():
-    portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "future"))
-    portfolio.add_position(Position("AAPL", 5, 155.0, "future"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 5, 155.0))
 
     pos = portfolio.get_position("AAPL")
     assert pos is not None
     assert pos.quantity == 15
     assert pos.price == 155.0
-    assert pos.instrument_type == "future"
+    assert pos.instrument.instrument_type == "equity"
 
 
-def test_add_position_duplicate_with_different_instrument_type():
+def test_add_position_duplicate_with_different_instrument_type(
+    instruments_dict: dict[str, Instrument],
+):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "future"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+
+    same_symbol_different_type = Instrument("AAPL", "future", 0.1, "AAPL Future")
     with pytest.raises(ValueError, match="Cannot merge positions with different instrument types"):
-        portfolio.add_position(Position("AAPL", 5, 155.0, "equity"))
+        portfolio.add_position(Position(same_symbol_different_type, 5, 155.0))
 
 
 # ========= Tests for margin calculation ==========
 
 
-def test_margin_calculation_equity():
-    pos = Position("AAPL", 10, 150.0, "equity")
-    expected_margin = abs(pos.value()) * MARGIN_RATES["equity"]
+def test_margin_calculation_equity(instruments_dict: dict[str, Instrument]):
+    pos = Position(instruments_dict["AAPL"], 10, 150.0)
+    expected_margin = abs(pos.value()) * instruments_dict["AAPL"].margin_rate
     assert pos.margin() == expected_margin
 
 
-def test_margin_calculation_future():
-    pos = Position("ES", 5, 2000.0, "future")
-    expected_margin = abs(pos.value()) * MARGIN_RATES["future"]
+def test_margin_calculation_future(instruments_dict: dict[str, Instrument]):
+    pos = Position(instruments_dict["AAPL"], 5, 2000.0)
+    expected_margin = abs(pos.value()) * instruments_dict["AAPL"].margin_rate
     assert pos.margin() == expected_margin
 
 
-def test_total_margin_calculation():
+def test_total_margin_calculation(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "equity"))
-    portfolio.add_position(Position("ES", 5, 2000.0, "future"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["MSFT"], 5, 2000.0))
 
     expected_total_margin = (
-        abs(10 * 150.0) * MARGIN_RATES["equity"] + abs(5 * 2000.0) * MARGIN_RATES["future"]
+        abs(10 * 150.0) * instruments_dict["AAPL"].margin_rate
+        + abs(5 * 2000.0) * instruments_dict["MSFT"].margin_rate
     )
     assert portfolio.total_margin() == expected_total_margin
 
 
-def test_margin_calculation_negative_quantity():
-    pos = Position("AAPL", -10, 150.0, "equity")
-    expected_margin = abs(pos.value()) * MARGIN_RATES["equity"]
+def test_margin_calculation_negative_quantity(instruments_dict: dict[str, Instrument]):
+    pos = Position(instruments_dict["AAPL"], -10, 150.0)
+    expected_margin = abs(pos.value()) * instruments_dict["AAPL"].margin_rate
     assert pos.margin() == expected_margin
 
 
 # ========= Tests for applying stress scenario ==========
 
 
-def test_apply_stress_scenario():
+def test_apply_stress_scenario(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "equity"))
-    portfolio.add_position(Position("MSFT", 5, 300.0, "equity"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["MSFT"], 5, 300.0))
 
-    stress_factors = {"AAPL": -0.1, "MSFT": -0.2}  # AAPL down 10%, MSFT down 20%
+    stress_factors = {"AAPL": -0.1, "MSFT": -0.2}
     stressed_portfolio = apply_stress_scenario(portfolio, stress_factors)
 
     pos_aapl = portfolio.get_position("AAPL")
@@ -228,20 +238,16 @@ def test_apply_stress_scenario():
     assert pos_msft.price == 300.0
 
     assert stressed_pos_aapl is not None
-    assert stressed_pos_aapl.price == 135.0  # 150 * (1 - 0.1)
+    assert stressed_pos_aapl.price == 135.0
     assert stressed_pos_msft is not None
-    assert stressed_pos_msft.price == 240.0  # 300 * (1 - 0.2)
+    assert stressed_pos_msft.price == 240.0
 
 
-def test_apply_stress_scenario_with_nonexistent_symbol():
-    # Given a portfolio and a stress scenario with nonexistent symbols
-    # When the stress scenario is applied
-    # Then it should raise a ValueError for the nonexistent symbols
-
+def test_apply_stress_scenario_with_nonexistent_symbol(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "equity"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
 
-    stress_factors = {"GOOG": -0.1, "MSFT": -0.2}  # GOOG and MSFT are not in the portfolio
+    stress_factors = {"GOOG": -0.1, "MSFT": -0.2}
     with pytest.raises(ValueError) as exc_info:
         _ = apply_stress_scenario(portfolio, stress_factors)
 
@@ -256,51 +262,45 @@ def test_apply_stress_scenario_with_nonexistent_symbol():
     assert pos_aapl.price == 150.0
 
 
-def test_apply_stress_scenario_with_negative_price():
-    # Given a portfolio and a stress scenario that would result in a negative price
-    # When the stress scenario is applied
-    # Then it should clamp the price to zero and not raise an error
-
+def test_apply_stress_scenario_with_negative_price(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "equity"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
 
-    stress_factors = {"AAPL": -2.0}  # This would make the price negative
+    stress_factors = {"AAPL": -2.0}
     stressed_portfolio = apply_stress_scenario(portfolio, stress_factors)
     stressed_pos_aapl = stressed_portfolio.get_position("AAPL")
     assert stressed_pos_aapl is not None
     assert stressed_pos_aapl.price == 0.0
 
 
-def test_apply_stress_scenario_zero_price_change():
-    # Given a portfolio and a stress scenario with zero price change
-    # When the stress scenario is applied
-    # Then the prices should remain unchanged
-
+def test_apply_stress_scenario_zero_price_change(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "equity"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
 
-    stress_factors = {"AAPL": 0.0}  # No change in price
+    stress_factors = {"AAPL": 0.0}
     portfolio = apply_stress_scenario(portfolio, stress_factors)
 
     pos_aapl = portfolio.get_position("AAPL")
     assert pos_aapl is not None
-    assert pos_aapl.price == 150.0  # Price should remain unchanged
+    assert pos_aapl.price == 150.0
 
 
-def test_margin_calculation_with_stress_scenario():
+def test_margin_calculation_with_stress_scenario(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0, "equity"))
-    portfolio.add_position(Position("MSFT", 5, 300.0, "equity"))
+    portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
+    portfolio.add_position(Position(instruments_dict["MSFT"], 5, 300.0))
 
-    stress_factors = {"AAPL": -0.1, "MSFT": -0.2}  # AAPL down 10%, MSFT down 20%
+    stress_factors = {"AAPL": -0.1, "MSFT": -0.2}
     stressed_portfolio = apply_stress_scenario(portfolio, stress_factors)
 
     expected_total_original_margin = (
-        abs(10 * 150.0) * MARGIN_RATES["equity"] + abs(5 * 300.0) * MARGIN_RATES["equity"]
+        abs(10 * 150.0) * instruments_dict["AAPL"].margin_rate
+        + abs(5 * 300.0) * instruments_dict["MSFT"].margin_rate
     )
     assert portfolio.total_margin() == expected_total_original_margin
 
     expected_total_stressed_margin = (
-        abs(10 * 135.0) * MARGIN_RATES["equity"] + abs(5 * 240.0) * MARGIN_RATES["equity"]
+        abs(10 * 135.0) * instruments_dict["AAPL"].margin_rate
+        + abs(5 * 240.0) * instruments_dict["MSFT"].margin_rate
     )
     assert stressed_portfolio.total_margin() == expected_total_stressed_margin
