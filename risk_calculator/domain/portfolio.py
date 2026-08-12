@@ -1,20 +1,13 @@
 from dataclasses import dataclass
-from typing import Literal
 
-InstrumentType = Literal["equity", "future"]
-
-MARGIN_RATES = {
-    "equity": 0.30,
-    "future": 0.10,
-}
+from risk_calculator.domain.instrument import Instrument
 
 
 @dataclass
 class Position:
-    symbol: str
+    instrument: Instrument
     quantity: float
     price: float
-    instrument_type: InstrumentType = "equity"
 
     def value(self) -> float:
         """Current value of this position."""
@@ -22,12 +15,12 @@ class Position:
 
     def margin(self) -> float:
         """Calculate the margin requirement for this position."""
-        rate = MARGIN_RATES[self.instrument_type]
-        return abs(self.value()) * rate
+
+        return abs(self.value()) * self.instrument.margin_rate
 
     def __str__(self) -> str:
         return (
-            f"{self.symbol} ({self.instrument_type}): "
+            f"{self.instrument.symbol} ({self.instrument.instrument_type}): "
             f"{self.quantity} @ {self.price:.2f} = {self.value():.2f} "
             f"| margin: {self.margin():.2f}"
         )
@@ -42,22 +35,22 @@ class Portfolio:
             raise ValueError("Quantity cannot be zero")
         if position.price < 0:
             raise ValueError("Price cannot be negative")
-        if position.instrument_type not in MARGIN_RATES:
-            raise ValueError(f"Invalid instrument type: {position.instrument_type}")
+        # if position.instrument.instrument_type not in MARGIN_RATES:
+        #     raise ValueError(f"Invalid instrument type: {position.instrument.instrument_type}")
 
         # if the position already exists, update the quantity and price
-        if position.symbol in self.positions:
-            existing_position = self.positions[position.symbol]
-            if existing_position.instrument_type != position.instrument_type:
+        if position.instrument.symbol in self.positions:
+            existing_position = self.positions[position.instrument.symbol]
+            if existing_position.instrument.instrument_type != position.instrument.instrument_type:
                 raise ValueError("Cannot merge positions with different instrument types")
 
             existing_position.quantity += position.quantity
             existing_position.price = position.price
 
             if existing_position.quantity == 0:
-                del self.positions[position.symbol]
+                del self.positions[position.instrument.symbol]
         else:
-            self.positions[position.symbol] = position
+            self.positions[position.instrument.symbol] = position
 
     def get_position(self, symbol: str) -> Position | None:
         return self.positions.get(symbol)
@@ -119,10 +112,9 @@ def apply_stress_scenario(
         new_price = max(new_price, 0.0)
         stressed.add_position(
             Position(
-                symbol=symbol,
+                instrument=position.instrument,
                 quantity=position.quantity,
                 price=new_price,
-                instrument_type=position.instrument_type,
             )
         )
 

@@ -1,53 +1,160 @@
-from risk_calculator.portfolio import Portfolio, Position
-from risk_calculator.storage import load_portfolio, save_portfolio
+from pathlib import Path
+
+import pytest
+
+from risk_calculator.domain.instrument import Instrument
+from risk_calculator.domain.portfolio import Portfolio, Position
+from risk_calculator.repositories.sqlite.db_schema import create_schema
+from risk_calculator.repositories.sqlite.instrument import SQLiteInstrumentRepository
+from risk_calculator.repositories.sqlite.portfolio import SQLitePortfolioRepository
 
 
-def test_save_and_load_portfolio(tmp_path):
+@pytest.fixture
+def db_path(tmp_path) -> Path:
+    db_path = tmp_path / "portfolio.db"
+    create_schema(db_path)
+    return db_path
+
+
+@pytest.fixture
+def instrument_repo(db_path: Path):
+    return SQLiteInstrumentRepository(db_path)
+
+
+@pytest.fixture
+def portfolio_repo(db_path: Path) -> SQLitePortfolioRepository:
+    return SQLitePortfolioRepository(db_path)
+
+
+@pytest.fixture
+def sample_instruments(instrument_repo: SQLiteInstrumentRepository):
+    instruments = [
+        Instrument("AAPL", "equity", 0.3, "Apple Inc."),
+        Instrument("MSFT", "equity", 0.3, "Microsoft Corp."),
+    ]
+    instrument_repo.save_all(instruments)
+    return instruments
+
+
+def test_save_and_load_instrument(instrument_repo: SQLiteInstrumentRepository):
+    instrument = Instrument("AAPL", "equity", 0.3, "Apple Inc.")
+    instrument_repo.save(instrument)
+
+    loaded_instrument = instrument_repo.get("AAPL")
+
+    # Check that the loaded instrument matches the original
+    assert loaded_instrument is not None
+    assert loaded_instrument.symbol == instrument.symbol
+    assert loaded_instrument.instrument_type == instrument.instrument_type
+    assert loaded_instrument.margin_rate == instrument.margin_rate
+    assert loaded_instrument.name == instrument.name
+
+
+def test_load_nonexistent_instrument(instrument_repo: SQLiteInstrumentRepository):
+    assert instrument_repo.get("NONEXISTENT") is None
+
+
+def test_overwrite_existing_instrument(instrument_repo: SQLiteInstrumentRepository):
+    instrument1 = Instrument("AAPL", "equity", 0.3, "Apple Inc.")
+    instrument_repo.save(instrument1)
+
+    instrument2 = Instrument("AAPL", "equity", 0.25, "Apple Inc. Updated")
+    instrument_repo.save(instrument2)
+
+    loaded_instrument = instrument_repo.get("AAPL")
+    assert loaded_instrument is not None
+    assert loaded_instrument.symbol == instrument2.symbol
+    assert loaded_instrument.instrument_type == instrument2.instrument_type
+    assert loaded_instrument.margin_rate == instrument2.margin_rate
+    assert loaded_instrument.name == instrument2.name
+
+
+def test_save_and_load_all_instruments(instrument_repo: SQLiteInstrumentRepository):
+    instruments = [
+        Instrument("AAPL", "equity", 0.3, "Apple Inc."),
+        Instrument("MSFT", "equity", 0.3, "Microsoft Corp."),
+    ]
+    instrument_repo.save_all(instruments)
+
+    loaded_instruments = instrument_repo.get_all()
+    assert len(loaded_instruments) == len(instruments)
+    for instrument in instruments:
+        loaded_instrument = instrument_repo.get(instrument.symbol)
+        assert loaded_instrument is not None
+        assert loaded_instrument.symbol == instrument.symbol
+        assert loaded_instrument.instrument_type == instrument.instrument_type
+        assert loaded_instrument.margin_rate == instrument.margin_rate
+        assert loaded_instrument.name == instrument.name
+
+
+def test_save_and_load_portfolio(
+    sample_instruments: list[Instrument], portfolio_repo: SQLitePortfolioRepository
+):
     # Create a sample portfolio
     portfolio = Portfolio()
-    portfolio.add_position(Position("AAPL", 10, 150.0))
-    portfolio.add_position(Position("MSFT", 5, 300.0))
-
-    # Define the database path
-    db_path = tmp_path / "portfolio.db"
-
-    # Save the portfolio to the database
-    save_portfolio(portfolio, db_path)
+    portfolio.add_position(
+        Position(
+            Instrument("AAPL", "equity", 0.3),
+            quantity=10,
+            price=150.0,
+        )
+    )
+    portfolio.add_position(
+        Position(
+            Instrument("MSFT", "equity", 0.3),
+            quantity=5,
+            price=300.0,
+        )
+    )
+    portfolio_repo.save(portfolio)
 
     # Load the portfolio from the database
-    loaded_portfolio = load_portfolio(db_path)
+    loaded_portfolio = portfolio_repo.get()
 
     # Check that the loaded portfolio matches the original
     assert len(loaded_portfolio.positions) == 2
     assert loaded_portfolio.total_value() == portfolio.total_value()
 
 
-def test_load_empty_portfolio(tmp_path):
-    # Define the database path
-    db_path = tmp_path / "portfolio.db"
-
+def test_load_empty_portfolio(portfolio_repo: SQLitePortfolioRepository, tmp_path):
     # Load the portfolio from the database (should be empty)
-    loaded_portfolio = load_portfolio(db_path)
+    loaded_portfolio = portfolio_repo.get()
 
     # Check that the loaded portfolio is empty
     assert len(loaded_portfolio.positions) == 0
     assert loaded_portfolio.total_value() == 0.0
 
 
-def test_overwrite_existing_portfolio(tmp_path):
+def test_overwrite_existing_portfolio(
+    sample_instruments: list[Instrument],
+    instrument_repo: SQLiteInstrumentRepository,
+    portfolio_repo: SQLitePortfolioRepository,
+    tmp_path,
+):
     # Create a sample portfolio and save it
     portfolio1 = Portfolio()
-    portfolio1.add_position(Position("AAPL", 10, 150.0))
-    db_path = tmp_path / "portfolio.db"
-    save_portfolio(portfolio1, db_path)
+    portfolio1.add_position(
+        Position(
+            Instrument("AAPL", "equity", 0.3),
+            quantity=10,
+            price=150.0,
+        )
+    )
+    portfolio_repo.save(portfolio1)
 
     # Create a new portfolio and save it (should overwrite the existing one)
     portfolio2 = Portfolio()
-    portfolio2.add_position(Position("MSFT", 5, 300.0))
-    save_portfolio(portfolio2, db_path)
+    portfolio2.add_position(
+        Position(
+            Instrument("MSFT", "equity", 0.3),
+            quantity=5,
+            price=300.0,
+        )
+    )
+    portfolio_repo.save(portfolio2)
 
     # Load the portfolio from the database
-    loaded_portfolio = load_portfolio(db_path)
+    loaded_portfolio = portfolio_repo.get()
 
     # Check that the loaded portfolio matches the second one
     assert len(loaded_portfolio.positions) == 1

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from risk_calculator.portfolio import InstrumentType
+from risk_calculator.domain.instrument import InstrumentType
 
 
 class PositionCreateRequest(BaseModel):
