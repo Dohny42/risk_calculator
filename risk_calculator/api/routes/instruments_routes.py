@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from risk_calculator.api.dependencies import get_instrument_service, get_portfolio_service
+from risk_calculator.api.dependencies import get_instrument_service
 from risk_calculator.api.schemas import (
     InstrumentCreate,
     InstrumentResponse,
