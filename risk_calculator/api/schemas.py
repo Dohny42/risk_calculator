@@ -3,15 +3,24 @@ from pydantic import BaseModel, Field
 from risk_calculator.domain.instrument import InstrumentType
 
 
+class InstrumentCreate(BaseModel):
+    symbol: str
+    instrument_type: InstrumentType
+    margin_rate: float = Field(ge=0, le=1)
+    name: str | None = None
+
+
+class InstrumentResponse(BaseModel):
+    symbol: str
+    instrument_type: InstrumentType
+    margin_rate: float
+    name: str | None = None
+
+
 class PositionCreateRequest(BaseModel):
     symbol: str
     quantity: float
     price: float = Field(gt=0)
-    instrument_type: InstrumentType = "equity"
-
-
-class StressRequest(BaseModel):
-    price_changes: dict[str, float]
 
 
 class PositionResponse(BaseModel):

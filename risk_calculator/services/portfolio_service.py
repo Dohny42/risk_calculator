@@ -4,10 +4,10 @@ from risk_calculator.repositories.protocols import InstrumentRepository, Portfol
 
 class PortfolioService:
     def __init__(
-        self, portfolio_repository: PortfolioRepository, instrument_repository: InstrumentRepository
+        self, instrument_repository: InstrumentRepository, portfolio_repository: PortfolioRepository
     ) -> None:
-        self.portfolio_repository = portfolio_repository
         self.instrument_repository = instrument_repository
+        self.portfolio_repository = portfolio_repository
 
     def get_portfolio(self) -> Portfolio:
         return self.portfolio_repository.get()

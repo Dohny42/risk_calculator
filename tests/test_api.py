@@ -4,23 +4,35 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from risk_calculator.api import app, get_portfolio_service
-from risk_calculator.repository import SQLitePortfolioRepository
-from risk_calculator.service import PortfolioService
+from risk_calculator.api.app import app
+from risk_calculator.api.dependencies import get_instrument_service, get_portfolio_service
+from risk_calculator.repositories.sqlite.db_schema import create_schema
+from risk_calculator.repositories.sqlite.instrument import SQLiteInstrumentRepository
+from risk_calculator.repositories.sqlite.portfolio import SQLitePortfolioRepository
+from risk_calculator.services.instrument_service import InstrumentService
+from risk_calculator.services.portfolio_service import PortfolioService
 
 
 @pytest.fixture
 def temp_db_path(tmp_path: Path) -> Path:
-    return tmp_path / "test_portfolio.db"
+    db_path = tmp_path / "portfolio.db"
+    create_schema(db_path)
+    return db_path
 
 
 @pytest.fixture
 def test_client(temp_db_path: Path) -> Generator[TestClient]:
-    # Override the dependency to use a temporary database for testing
-    def override_get_portfolio_service() -> PortfolioService:
-        repository = SQLitePortfolioRepository(db_path=temp_db_path)
-        return PortfolioService(repository)
+    # Override the dependencies to use a temporary database for testing
+    def override_get_instrument_service() -> InstrumentService:
+        instrument_repository = SQLiteInstrumentRepository(db_path=temp_db_path)
+        return InstrumentService(instrument_repository)
 
+    def override_get_portfolio_service() -> PortfolioService:
+        instrument_repository = SQLiteInstrumentRepository(db_path=temp_db_path)
+        portfolio_repository = SQLitePortfolioRepository(db_path=temp_db_path)
+        return PortfolioService(instrument_repository, portfolio_repository)
+
+    app.dependency_overrides[get_instrument_service] = override_get_instrument_service
     app.dependency_overrides[get_portfolio_service] = override_get_portfolio_service
     with TestClient(app) as client:
         yield client
@@ -29,32 +41,54 @@ def test_client(temp_db_path: Path) -> Generator[TestClient]:
 
 
 @pytest.fixture
-def default_state_client(test_client: TestClient) -> TestClient:
-    """
-    Fixture to set up a default state portfolio with some positions for testing.
+def create_instrument(test_client: TestClient):
+    def _create(
+        symbol: str = "AAPL",
+        instrument_type: str = "equity",
+        margin_rate: float = 0.30,
+        name: str | None = None,
+    ) -> dict:
+        payload = {
+            "symbol": symbol,
+            "instrument_type": instrument_type,
+            "margin_rate": margin_rate,
+            "name": name,
+        }
+        response = test_client.post("/instruments", json=payload)
+        assert response.status_code == 200
+        return response.json()
 
-    Returns:
-        TestClient: The test client with the default state portfolio set up.
-    """
+    return _create
 
-    payloads = [
-        {
-            "symbol": "AAPL",
-            "quantity": 10,
-            "price": 150.0,
-            "instrument_type": "equity",
-        },
-        {
-            "symbol": "GOOGL",
-            "quantity": 5,
-            "price": 1000.0,
-            "instrument_type": "equity",
-        },
-    ]
-    for payload in payloads:
-        test_client.post("/positions", json=payload)
 
-    return test_client
+@pytest.fixture
+def create_position(test_client: TestClient):
+    def _create(
+        symbol: str = "AAPL",
+        quantity: float = 10.0,
+        price: float = 150.0,
+    ) -> dict:
+        payload = {
+            "symbol": symbol,
+            "quantity": quantity,
+            "price": price,
+        }
+        response = test_client.post("/positions", json=payload)
+        assert response.status_code == 200
+        return response.json()
+
+    return _create
+
+
+@pytest.fixture
+def default_portfolio(create_instrument, create_position) -> None:
+    create_instrument(symbol="AAPL", instrument_type="equity", margin_rate=0.30, name="Apple Inc.")
+    create_instrument(
+        symbol="GOOGL", instrument_type="equity", margin_rate=0.30, name="Alphabet Inc."
+    )
+
+    create_position(symbol="AAPL", quantity=10, price=150.0)
+    create_position(symbol="GOOGL", quantity=5, price=1000.0)
 
 
 def assert_portfolio_matches(
@@ -67,6 +101,76 @@ def assert_portfolio_matches(
     assert actual["total_margin"] == total_margin
 
 
+def test_root_endpoint(test_client: TestClient):
+    response = test_client.get("/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == "Risk Calculator API"
+    assert data["docs"] == "/docs"
+
+
+def test_create_instrument(test_client: TestClient):
+    payload = {
+        "symbol": "AAPL",
+        "instrument_type": "equity",
+        "margin_rate": 0.30,
+        "name": "Apple Inc.",
+    }
+    response = test_client.post("/instruments", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["symbol"] == "AAPL"
+    assert data["instrument_type"] == "equity"
+    assert data["margin_rate"] == 0.30
+    assert data["name"] == "Apple Inc."
+
+
+def test_create_instrument_validation_error(test_client: TestClient):
+    payload = {
+        "symbol": "AAPL",
+        "instrument_type": "equity",
+        "margin_rate": -0.30,  # Invalid margin rate
+        "name": "Apple Inc.",
+    }
+    response = test_client.post("/instruments", json=payload)
+    assert response.status_code == 422  # FastAPI validation error
+
+
+def test_get_instrument_valid(test_client: TestClient, create_instrument):
+    create_instrument(symbol="AAPL")
+    response = test_client.get("/instruments/AAPL")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["symbol"] == "AAPL"
+    assert data["instrument_type"] == "equity"
+    assert data["margin_rate"] == 0.30
+
+
+def test_get_instrument_not_found(test_client: TestClient):
+    response = test_client.get("/instruments/INVALID")
+    assert response.status_code == 404
+    data = response.json()
+    assert "Instrument with symbol 'INVALID' not found." in data["detail"]
+
+
+def test_list_instruments_empty(test_client: TestClient):
+    response = test_client.get("/instruments")
+    assert response.status_code == 200
+    data = response.json()
+    assert data == []
+
+
+def test_list_instruments(test_client: TestClient, create_instrument):
+    create_instrument(symbol="AAPL")
+    create_instrument(symbol="GOOGL")
+    response = test_client.get("/instruments")
+    assert response.status_code == 200
+    data = response.json()
+    symbols = [instrument["symbol"] for instrument in data]
+    assert "AAPL" in symbols
+    assert "GOOGL" in symbols
+
+
 def test_get_empty_portfolio(test_client: TestClient):
     response = test_client.get("/portfolio")
     assert response.status_code == 200
@@ -76,12 +180,12 @@ def test_get_empty_portfolio(test_client: TestClient):
     assert data["total_margin"] == 0.0
 
 
-def test_add_position(test_client: TestClient):
+def test_add_position_valid(test_client: TestClient, create_instrument):
+    create_instrument(symbol="AAPL")
     payload = {
         "symbol": "AAPL",
         "quantity": 10,
         "price": 150.0,
-        "instrument_type": "equity",
     }
     response = test_client.post("/positions", json=payload)
     assert response.status_code == 200
@@ -106,7 +210,8 @@ def test_add_position(test_client: TestClient):
     )
 
 
-def test_add_position_validation_error(test_client: TestClient):
+def test_add_position_validation_error(test_client: TestClient, create_instrument):
+    create_instrument(symbol="AAPL")
     payload = {
         "symbol": "AAPL",
         "quantity": 10,
@@ -116,8 +221,7 @@ def test_add_position_validation_error(test_client: TestClient):
     assert response.status_code == 422  # FastAPI validation error
 
 
-def test_get_portfolio_with_positions(default_state_client: TestClient):
-    test_client = default_state_client
+def test_get_portfolio_with_positions(test_client: TestClient, default_portfolio):
     response = test_client.get("/portfolio")
     assert response.status_code == 200
     data = response.json()
@@ -147,55 +251,3 @@ def test_get_portfolio_with_positions(default_state_client: TestClient):
         total_value=6500.0,
         total_margin=1950.0,
     )
-
-
-def test_stress_test(default_state_client: TestClient):
-    test_client = default_state_client
-    payload = {
-        "price_changes": {
-            "AAPL": -0.1,
-            "GOOGL": 0.1,
-        }
-    }
-    response = test_client.post("/stress", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-
-    expected_positions = [
-        {
-            "symbol": "AAPL",
-            "quantity": 10,
-            "price": 135.0,  # 150 * 0.9
-            "instrument_type": "equity",
-            "value": 1350.0,
-            "margin": 405.0,  # 30% of 1350
-        },
-        {
-            "symbol": "GOOGL",
-            "quantity": 5,
-            "price": 1100.0,  # 1000 * 1.1
-            "instrument_type": "equity",
-            "value": 5500.0,
-            "margin": 1650.0,
-        },
-    ]
-
-    assert_portfolio_matches(
-        actual=data,
-        expected_positions=expected_positions,
-        total_value=6850.0,
-        total_margin=2055.0,
-    )
-
-
-def test_stress_test_invalid_symbol(default_state_client: TestClient):
-    test_client = default_state_client
-    payload = {
-        "price_changes": {
-            "INVALID": -0.1,
-        }
-    }
-    response = test_client.post("/stress", json=payload)
-    assert response.status_code == 400
-    data = response.json()
-    assert "Unknown symbols in price changes: ['INVALID']" in data["detail"]

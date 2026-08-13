@@ -127,9 +127,7 @@ def test_load_empty_portfolio(portfolio_repo: SQLitePortfolioRepository, tmp_pat
 
 def test_overwrite_existing_portfolio(
     sample_instruments: list[Instrument],
-    instrument_repo: SQLiteInstrumentRepository,
     portfolio_repo: SQLitePortfolioRepository,
-    tmp_path,
 ):
     # Create a sample portfolio and save it
     portfolio1 = Portfolio()

@@ -6,8 +6,7 @@ from risk_calculator.api.schemas import (
     PositionCreateRequest,
     PositionResponse,
 )
-from risk_calculator.domain.instrument import Instrument
-from risk_calculator.domain.portfolio import Portfolio, Position
+from risk_calculator.domain.portfolio import Portfolio
 from risk_calculator.services.portfolio_service import PortfolioService
 
 router = APIRouter()
@@ -43,21 +42,12 @@ def get_portfolio(
 @router.post("/positions", response_model=PortfolioResponse)
 def add_position(
     position: PositionCreateRequest,
-    service: PortfolioService = Depends(get_portfolio_service),
+    portfolio_service: PortfolioService = Depends(get_portfolio_service),
 ):
     try:
-        instrument = Instrument(
-            symbol=position.symbol,
-            instrument_type=position.instrument_type,
-            margin_rate=0,  # Replace with actual margin rate if available
-            name="",  # Replace with actual name if available
+        portfolio = portfolio_service.add_position(
+            position.symbol, position.quantity, position.price
         )
-        pos = Position(
-            instrument=instrument,
-            quantity=position.quantity,
-            price=position.price,
-        )
-        portfolio = service.add_position(pos)
         return to_portfolio_response(portfolio)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
