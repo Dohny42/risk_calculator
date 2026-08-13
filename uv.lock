@@ -238,31 +238,33 @@ name = "risk-calculator"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "anyio" },
     { name = "fastapi" },
-    { name = "httpx2" },
     { name = "pydantic" },
-    { name = "pytest" },
     { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "anyio" },
+    { name = "httpx2" },
+    { name = "pytest" },
     { name = "risk-calculator" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "anyio", specifier = ">=4.14.2" },
     { name = "fastapi", specifier = ">=0.141.1" },
-    { name = "httpx2", specifier = ">=2.10.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
-    { name = "pytest", specifier = ">=9.1.1" },
     { name = "uvicorn", specifier = ">=0.52.1" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "risk-calculator", editable = "." }]
+dev = [
+    { name = "anyio", specifier = ">=4.14.2" },
+    { name = "httpx2", specifier = ">=2.10.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "risk-calculator", editable = "." },
+]
 
 [[package]]
 name = "starlette"
