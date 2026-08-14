@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from risk_calculator.api.dependencies import get_portfolio_service
 from risk_calculator.api.schemas import (
@@ -44,10 +44,5 @@ def add_position(
     position: PositionCreateRequest,
     portfolio_service: PortfolioService = Depends(get_portfolio_service),
 ):
-    try:
-        portfolio = portfolio_service.add_position(
-            position.symbol, position.quantity, position.price
-        )
-        return to_portfolio_response(portfolio)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    portfolio = portfolio_service.add_position(position.symbol, position.quantity, position.price)
+    return to_portfolio_response(portfolio)

@@ -1,3 +1,4 @@
+from risk_calculator.domain.exceptions import UnknownInstrumentError
 from risk_calculator.domain.instrument import Instrument, InstrumentType
 from risk_calculator.repositories.protocols import InstrumentRepository
 
@@ -25,7 +26,7 @@ class InstrumentService:
     def get_instrument(self, symbol: str) -> Instrument:
         instrument = self.instrument_repository.get(symbol)
         if instrument is None:
-            raise ValueError(f"Instrument with symbol '{symbol}' not found.")
+            raise UnknownInstrumentError(symbol)
         return instrument
 
     def list_instruments(self) -> list[Instrument]:

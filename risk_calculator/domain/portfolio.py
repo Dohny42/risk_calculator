@@ -1,5 +1,10 @@
 from dataclasses import dataclass
 
+from risk_calculator.domain.exceptions import (
+    InvalidPositionError,
+    UnknownPositionError,
+    UnknownSymbolsError,
+)
 from risk_calculator.domain.instrument import Instrument
 
 
@@ -32,9 +37,9 @@ class Portfolio:
 
     def add_position(self, position: Position):
         if position.quantity == 0:
-            raise ValueError("Quantity cannot be zero")
+            raise InvalidPositionError("Quantity cannot be zero")
         if position.price < 0:
-            raise ValueError("Price cannot be negative")
+            raise InvalidPositionError("Price cannot be negative")
         # if position.instrument.instrument_type not in MARGIN_RATES:
         #     raise ValueError(f"Invalid instrument type: {position.instrument.instrument_type}")
 
@@ -42,7 +47,7 @@ class Portfolio:
         if position.instrument.symbol in self.positions:
             existing_position = self.positions[position.instrument.symbol]
             if existing_position.instrument.instrument_type != position.instrument.instrument_type:
-                raise ValueError("Cannot merge positions with different instrument types")
+                raise InvalidPositionError("Cannot merge positions with different instrument types")
 
             existing_position.quantity += position.quantity
             existing_position.price = position.price
@@ -57,16 +62,16 @@ class Portfolio:
 
     def update_price(self, symbol: str, price: float):
         if symbol not in self.positions:
-            raise ValueError(f"Position for {symbol} does not exist")
+            raise UnknownPositionError(f"Position for symbol '{symbol}' not found.")
         if price < 0:
-            raise ValueError("Price cannot be negative")
+            raise InvalidPositionError("Price cannot be negative")
 
         position = self.positions[symbol]
         position.price = price
 
     def remove_position(self, symbol: str):
         if symbol not in self.positions:
-            raise ValueError(f"Position for {symbol} does not exist")
+            raise UnknownPositionError(f"Position for symbol '{symbol}' not found.")
         del self.positions[symbol]
 
     def total_value(self) -> float:
@@ -102,7 +107,7 @@ def apply_stress_scenario(
     """
     unknown_symbols = sorted(set(price_changes.keys()) - set(portfolio.positions.keys()))
     if unknown_symbols:
-        raise ValueError(f"Unknown symbols in price changes: {unknown_symbols}")
+        raise UnknownSymbolsError(unknown_symbols)
 
     stressed = Portfolio()
 

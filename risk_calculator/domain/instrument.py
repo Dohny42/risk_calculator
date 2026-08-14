@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from risk_calculator.domain.exceptions import InvalidInstrumentError
+
 InstrumentType = Literal["equity", "future"]
 
 
@@ -14,6 +16,6 @@ class Instrument:
     def __post_init__(self) -> None:
         self.symbol = self.symbol.upper()
         if self.margin_rate < 0 or self.margin_rate > 1:
-            raise ValueError("margin_rate must be between 0 and 1")
+            raise InvalidInstrumentError(f"Invalid margin rate: {self.margin_rate}")
         if self.instrument_type not in ("equity", "future"):
-            raise ValueError(f"Invalid instrument type: {self.instrument_type}")
+            raise InvalidInstrumentError(f"Invalid instrument type: {self.instrument_type}")

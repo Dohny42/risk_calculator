@@ -1,5 +1,11 @@
 import pytest
 
+from risk_calculator.domain.exceptions import (
+    InvalidPositionError,
+    UnknownInstrumentError,
+    UnknownPositionError,
+    UnknownSymbolsError,
+)
 from risk_calculator.domain.instrument import Instrument
 from risk_calculator.domain.portfolio import Portfolio, Position, apply_stress_scenario
 
@@ -34,13 +40,13 @@ def test_add_positions_and_total(instruments_dict: dict[str, Instrument]):
 
 def test_cannot_add_zero_quantity(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    with pytest.raises(ValueError, match="Quantity cannot be zero"):
+    with pytest.raises(InvalidPositionError, match="Quantity cannot be zero"):
         portfolio.add_position(Position(instruments_dict["AAPL"], 0, 150.0))
 
 
 def test_cannot_add_negative_price(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
-    with pytest.raises(ValueError, match="Price cannot be negative"):
+    with pytest.raises(InvalidPositionError, match="Price cannot be negative"):
         portfolio.add_position(Position(instruments_dict["AAPL"], 10, -50.0))
 
 
@@ -73,7 +79,7 @@ def test_remove_position_positive(instruments_dict: dict[str, Instrument]):
 
 def test_remove_position_negative():
     portfolio = Portfolio()
-    with pytest.raises(ValueError, match="Position for AAPL does not exist"):
+    with pytest.raises(UnknownPositionError, match="Position for symbol 'AAPL' not found"):
         portfolio.remove_position("AAPL")
 
 
@@ -101,27 +107,27 @@ def test_update_price_existing_positive(instruments_dict: dict[str, Instrument])
 def test_update_price_existing_negative(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
     portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
-    with pytest.raises(ValueError, match="Price cannot be negative"):
+    with pytest.raises(InvalidPositionError, match="Price cannot be negative"):
         portfolio.update_price("AAPL", -10.0)
 
 
 def test_update_price_nonexistent():
     portfolio = Portfolio()
-    with pytest.raises(ValueError, match="Position for AAPL does not exist"):
+    with pytest.raises(UnknownPositionError, match="Position for symbol 'AAPL' not found"):
         portfolio.update_price("AAPL", 160.0)
 
 
 def test_add_duplicate_position_with_negative_price(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
     portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
-    with pytest.raises(ValueError, match="Price cannot be negative"):
+    with pytest.raises(InvalidPositionError, match="Price cannot be negative"):
         portfolio.add_position(Position(instruments_dict["AAPL"], 5, -155.0))
 
 
 def test_add_duplicate_position_with_zero_quantity(instruments_dict: dict[str, Instrument]):
     portfolio = Portfolio()
     portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
-    with pytest.raises(ValueError, match="Quantity cannot be zero"):
+    with pytest.raises(InvalidPositionError, match="Quantity cannot be zero"):
         portfolio.add_position(Position(instruments_dict["AAPL"], 0, 155.0))
 
 
@@ -179,7 +185,9 @@ def test_add_position_duplicate_with_different_instrument_type(
     portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
 
     same_symbol_different_type = Instrument("AAPL", "future", 0.1, "AAPL Future")
-    with pytest.raises(ValueError, match="Cannot merge positions with different instrument types"):
+    with pytest.raises(
+        InvalidPositionError, match="Cannot merge positions with different instrument types"
+    ):
         portfolio.add_position(Position(same_symbol_different_type, 5, 155.0))
 
 
@@ -248,14 +256,10 @@ def test_apply_stress_scenario_with_nonexistent_symbol(instruments_dict: dict[st
     portfolio.add_position(Position(instruments_dict["AAPL"], 10, 150.0))
 
     stress_factors = {"GOOG": -0.1, "MSFT": -0.2}
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        UnknownSymbolsError, match=r"Unknown symbols in price changes: \['GOOG', 'MSFT'\]"
+    ):
         _ = apply_stress_scenario(portfolio, stress_factors)
-
-    msg = str(exc_info.value)
-    assert "Unknown symbols in price changes" in msg
-    assert "GOOG" in msg
-    assert "MSFT" in msg
-    assert "AAPL" not in msg
 
     pos_aapl = portfolio.get_position("AAPL")
     assert pos_aapl is not None

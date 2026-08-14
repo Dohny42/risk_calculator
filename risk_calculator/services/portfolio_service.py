@@ -1,3 +1,4 @@
+from risk_calculator.domain.exceptions import UnknownInstrumentError
 from risk_calculator.domain.portfolio import Portfolio, Position, apply_stress_scenario
 from risk_calculator.repositories.protocols import InstrumentRepository, PortfolioRepository
 
@@ -15,7 +16,7 @@ class PortfolioService:
     def add_position(self, symbol: str, quantity: float, price: float) -> Portfolio:
         instrument = self.instrument_repository.get(symbol)
         if instrument is None:
-            raise ValueError(f"Instrument with symbol '{symbol}' not found.")
+            raise UnknownInstrumentError(symbol)
 
         position = Position(instrument=instrument, quantity=quantity, price=price)
         portfolio = self.get_portfolio()
