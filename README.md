@@ -142,3 +142,34 @@ uv run uvicorn risk_calculator.api.app:app --reload
 # Tests
 uv run pytest -v
 ```
+
+---
+
+## Configuration
+
+Application settings are managed with `pydantic-settings` in `risk_calculator/config.py`.
+
+### How it works
+
+Settings are loaded from:
+
+1. Environment variables
+2. Optional `.env` file
+3. Defaults in code
+
+The `get_settings()` function is cached so the process uses a single settings object.
+
+### Main settings
+
+| Setting       | Env var       | Default         | Description                  |
+|---------------|---------------|-----------------|------------------------------|
+| `app_name`    | `APP_NAME`    | Risk Calculator API | API title                 |
+| `db_path`     | `DB_PATH`     | `portfolio.db`  | SQLite database path         |
+
+### Local development
+
+Create a `.env` file in the project root (it is git-ignored):
+
+```env
+APP_NAME="Custom User Title"
+DB_PATH=path/to/usr/db_file.db

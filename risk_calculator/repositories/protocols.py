@@ -5,13 +5,9 @@ from risk_calculator.domain.portfolio import Portfolio
 
 
 class PortfolioRepository(Protocol):
-    def get(self) -> Portfolio:
-        """Load the current portfolio."""
-        ...
+    def get(self) -> Portfolio: ...
 
-    def save(self, portfolio: Portfolio) -> None:
-        """Persist the portfolio."""
-        ...
+    def save(self, portfolio: Portfolio) -> None: ...
 
 
 class InstrumentRepository(Protocol):
