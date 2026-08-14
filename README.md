@@ -57,6 +57,11 @@ This project is intentionally evolved **incrementally**. Every new feature is us
 - API tests with `TestClient` + dependency overrides
 - Factory-style fixtures for explicit test setup
 
+### Configuration
+- Central `Settings` via pydantic-settings
+- Environment variables + optional `.env`
+- No hard-coded database paths in services/API wiring
+
 ---
 
 ## Mid-term plan (features + concepts)
