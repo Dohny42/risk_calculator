@@ -2,6 +2,7 @@ from typing import Protocol
 
 from risk_calculator.domain.instrument import Instrument
 from risk_calculator.domain.portfolio import Portfolio
+from risk_calculator.domain.stress import StressScenario
 
 
 class PortfolioRepository(Protocol):
@@ -18,3 +19,13 @@ class InstrumentRepository(Protocol):
     def save(self, instrument: Instrument) -> None: ...
 
     def save_all(self, instruments: list[Instrument]) -> None: ...
+
+
+class StressScenarioRepository(Protocol):
+    def get(self, name: str) -> StressScenario | None: ...
+
+    def get_all(self) -> list[StressScenario]: ...
+
+    def save(self, stress_scenario: StressScenario) -> None: ...
+
+    def save_all(self, stress_scenarios: list[StressScenario]) -> None: ...

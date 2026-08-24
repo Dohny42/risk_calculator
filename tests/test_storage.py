@@ -4,9 +4,11 @@ import pytest
 
 from risk_calculator.domain.instrument import Instrument
 from risk_calculator.domain.portfolio import Portfolio, Position
+from risk_calculator.domain.stress import StressScenario
 from risk_calculator.repositories.sqlite.db_schema import create_schema
 from risk_calculator.repositories.sqlite.instrument import SQLiteInstrumentRepository
 from risk_calculator.repositories.sqlite.portfolio import SQLitePortfolioRepository
+from risk_calculator.repositories.sqlite.stress_scenario import SQLiteStressScenarioRepository
 
 
 @pytest.fixture
@@ -24,6 +26,11 @@ def instrument_repo(db_path: Path):
 @pytest.fixture
 def portfolio_repo(db_path: Path) -> SQLitePortfolioRepository:
     return SQLitePortfolioRepository(db_path)
+
+
+@pytest.fixture
+def stress_scenario_repo(db_path: Path) -> SQLiteStressScenarioRepository:
+    return SQLiteStressScenarioRepository(db_path)
 
 
 @pytest.fixture
@@ -86,34 +93,33 @@ def test_save_and_load_all_instruments(instrument_repo: SQLiteInstrumentReposito
         assert loaded_instrument.margin_rate == instrument.margin_rate
         assert loaded_instrument.name == instrument.name
 
-
-def test_save_and_load_portfolio(
-    sample_instruments: list[Instrument], portfolio_repo: SQLitePortfolioRepository
-):
-    # Create a sample portfolio
-    portfolio = Portfolio()
-    portfolio.add_position(
-        Position(
-            Instrument("AAPL", "equity", 0.3),
-            quantity=10,
-            price=150.0,
+    def test_save_and_load_portfolio(
+        sample_instruments: list[Instrument], portfolio_repo: SQLitePortfolioRepository
+    ):
+        # Create a sample portfolio
+        portfolio = Portfolio()
+        portfolio.add_position(
+            Position(
+                Instrument("AAPL", "equity", 0.3),
+                quantity=10,
+                price=150.0,
+            )
         )
-    )
-    portfolio.add_position(
-        Position(
-            Instrument("MSFT", "equity", 0.3),
-            quantity=5,
-            price=300.0,
+        portfolio.add_position(
+            Position(
+                Instrument("MSFT", "equity", 0.3),
+                quantity=5,
+                price=300.0,
+            )
         )
-    )
-    portfolio_repo.save(portfolio)
+        portfolio_repo.save(portfolio)
 
-    # Load the portfolio from the database
-    loaded_portfolio = portfolio_repo.get()
+        # Load the portfolio from the database
+        loaded_portfolio = portfolio_repo.get()
 
-    # Check that the loaded portfolio matches the original
-    assert len(loaded_portfolio.positions) == 2
-    assert loaded_portfolio.total_value() == portfolio.total_value()
+        # Check that the loaded portfolio matches the original
+        assert len(loaded_portfolio.positions) == 2
+        assert loaded_portfolio.total_value() == portfolio.total_value()
 
 
 def test_load_empty_portfolio(portfolio_repo: SQLitePortfolioRepository, tmp_path):
@@ -159,3 +165,55 @@ def test_overwrite_existing_portfolio(
     assert loaded_portfolio.get_position("AAPL") is None
     assert loaded_portfolio.get_position("MSFT") is not None
     assert loaded_portfolio.total_value() == portfolio2.total_value()
+
+
+def test_save_and_load_stress_scenario(
+    stress_scenario_repo: SQLiteStressScenarioRepository,
+):
+    stress_scenario = StressScenario(
+        name="Market Crash",
+        price_changes={"AAPL": -0.1, "MSFT": -0.2},
+        description="A sudden market crash scenario.",
+    )
+    stress_scenario_repo.save(stress_scenario)
+
+    loaded_stress_scenario = stress_scenario_repo.get("Market Crash")
+
+    assert loaded_stress_scenario is not None
+    assert loaded_stress_scenario.name == stress_scenario.name
+    assert loaded_stress_scenario.price_changes == stress_scenario.price_changes
+    assert loaded_stress_scenario.description == stress_scenario.description
+
+
+def test_save_and_load_all_stress_scenarios(
+    stress_scenario_repo: SQLiteStressScenarioRepository,
+):
+    stress_scenarios = [
+        StressScenario(
+            name="Market Crash",
+            price_changes={"AAPL": -0.1, "MSFT": -0.2},
+            description="A sudden market crash scenario.",
+        ),
+        StressScenario(
+            name="Interest Rate Hike",
+            price_changes={"AAPL": -0.05, "MSFT": -0.1},
+            description="An interest rate hike scenario.",
+        ),
+    ]
+    stress_scenario_repo.save_all(stress_scenarios)
+
+    loaded_stress_scenarios = stress_scenario_repo.get_all()
+
+    assert len(loaded_stress_scenarios) == len(stress_scenarios)
+    for scenario in stress_scenarios:
+        loaded_scenario = stress_scenario_repo.get(scenario.name)
+        assert loaded_scenario is not None
+        assert loaded_scenario.name == scenario.name
+        assert loaded_scenario.price_changes == scenario.price_changes
+        assert loaded_scenario.description == scenario.description
+
+
+def test_load_nonexistent_stress_scenario(
+    stress_scenario_repo: SQLiteStressScenarioRepository,
+):
+    assert stress_scenario_repo.get("NONEXISTENT") is None

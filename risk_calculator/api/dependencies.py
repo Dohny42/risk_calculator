@@ -1,8 +1,10 @@
 from risk_calculator.config import get_settings
 from risk_calculator.repositories.sqlite.instrument import SQLiteInstrumentRepository
 from risk_calculator.repositories.sqlite.portfolio import SQLitePortfolioRepository
+from risk_calculator.repositories.sqlite.stress_scenario import SQLiteStressScenarioRepository
 from risk_calculator.services.instrument_service import InstrumentService
 from risk_calculator.services.portfolio_service import PortfolioService
+from risk_calculator.services.stress_service import StressScenarioService
 
 
 def get_portfolio_service() -> PortfolioService:
@@ -14,3 +16,8 @@ def get_portfolio_service() -> PortfolioService:
 def get_instrument_service() -> InstrumentService:
     instrument_repository = SQLiteInstrumentRepository(get_settings().db_path)
     return InstrumentService(instrument_repository)
+
+
+def get_stress_scenario_service() -> StressScenarioService:
+    stress_scenario_repository = SQLiteStressScenarioRepository(get_settings().db_path)
+    return StressScenarioService(stress_scenario_repository)

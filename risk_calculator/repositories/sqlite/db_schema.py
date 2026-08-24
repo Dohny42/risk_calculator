@@ -27,3 +27,15 @@ def create_schema(db_path: Path):
             );
             """
         )
+
+        # stress scenarios
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS stress_scenarios (
+                name            TEXT PRIMARY KEY,
+                price_changes   TEXT NOT NULL,
+                description     TEXT,
+                created_at      TEXT NOT NULL
+            );
+            """
+        )

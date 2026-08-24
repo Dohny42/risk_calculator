@@ -36,3 +36,15 @@ class PortfolioResponse(BaseModel):
     positions: list[PositionResponse]
     total_value: float
     total_margin: float
+
+
+class StressScenarioCreateRequest(BaseModel):
+    name: str
+    price_changes: dict[str, float]
+    description: str | None = None
+
+
+class StressScenarioResponse(BaseModel):
+    name: str
+    price_changes: dict[str, float]
+    description: str | None = None

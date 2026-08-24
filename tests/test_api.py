@@ -5,12 +5,18 @@ import pytest
 from fastapi.testclient import TestClient
 
 from risk_calculator.api.app import app
-from risk_calculator.api.dependencies import get_instrument_service, get_portfolio_service
+from risk_calculator.api.dependencies import (
+    get_instrument_service,
+    get_portfolio_service,
+    get_stress_scenario_service,
+)
 from risk_calculator.repositories.sqlite.db_schema import create_schema
 from risk_calculator.repositories.sqlite.instrument import SQLiteInstrumentRepository
 from risk_calculator.repositories.sqlite.portfolio import SQLitePortfolioRepository
+from risk_calculator.repositories.sqlite.stress_scenario import SQLiteStressScenarioRepository
 from risk_calculator.services.instrument_service import InstrumentService
 from risk_calculator.services.portfolio_service import PortfolioService
+from risk_calculator.services.stress_service import StressScenarioService
 
 
 @pytest.fixture
@@ -32,8 +38,13 @@ def test_client(temp_db_path: Path) -> Generator[TestClient]:
         portfolio_repository = SQLitePortfolioRepository(db_path=temp_db_path)
         return PortfolioService(instrument_repository, portfolio_repository)
 
+    def override_get_stress_scenario_service() -> StressScenarioService:
+        stress_scenario_repository = SQLiteStressScenarioRepository(db_path=temp_db_path)
+        return StressScenarioService(stress_scenario_repository)
+
     app.dependency_overrides[get_instrument_service] = override_get_instrument_service
     app.dependency_overrides[get_portfolio_service] = override_get_portfolio_service
+    app.dependency_overrides[get_stress_scenario_service] = override_get_stress_scenario_service
     with TestClient(app) as client:
         yield client
 
@@ -251,3 +262,229 @@ def test_get_portfolio_with_positions(test_client: TestClient, default_portfolio
         total_value=6500.0,
         total_margin=1950.0,
     )
+
+
+def test_post_and_get_stress_scenario(
+    test_client: TestClient,
+):
+    stress_scenario_payload = {
+        "name": "Market Crash",
+        "price_changes": {
+            "AAPL": -0.2,
+            "GOOGL": -0.15,
+        },
+        "description": "A sudden and severe market downturn.",
+    }
+
+    response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
+    assert response.status_code == 200
+    created_scenario = response.json()
+
+    assert created_scenario["name"] == "Market Crash"
+    assert created_scenario["price_changes"] == {"AAPL": -0.2, "GOOGL": -0.15}
+    assert created_scenario["description"] == "A sudden and severe market downturn."
+
+    response = test_client.get("/stress-scenarios/Market Crash")
+    assert response.status_code == 200
+    retrieved_scenario = response.json()
+
+    assert retrieved_scenario == created_scenario
+
+
+def test_apply_stress_scenario(test_client: TestClient, default_portfolio):
+    stress_scenario_payload = {
+        "name": "Market Crash",
+        "price_changes": {
+            "AAPL": -0.2,
+            "GOOGL": -0.15,
+        },
+        "description": "A sudden and severe market downturn.",
+    }
+
+    response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
+    assert response.status_code == 200
+
+    response = test_client.post("/stress-scenarios/Market Crash/apply")
+    assert response.status_code == 200
+    stressed_portfolio = response.json()
+
+    expected_positions = [
+        {
+            "symbol": "AAPL",
+            "quantity": 10,
+            "price": 120.0,  # 150 * (1 - 0.2)
+            "instrument_type": "equity",
+            "value": 1200.0,
+            "margin": 360.0,  # 30% of 1200
+        },
+        {
+            "symbol": "GOOGL",
+            "quantity": 5,
+            "price": 850.0,  # 1000 * (1 - 0.15)
+            "instrument_type": "equity",
+            "value": 4250.0,
+            "margin": 1275.0,  # 30% of 4250
+        },
+    ]
+
+    assert_portfolio_matches(
+        actual=stressed_portfolio,
+        expected_positions=expected_positions,
+        total_value=5450.0,
+        total_margin=1635.0,
+    )
+
+
+def test_apply_nonexistent_stress_scenario(test_client: TestClient, default_portfolio):
+    response = test_client.post("/stress-scenarios/Nonexistent Scenario/apply")
+    assert response.status_code == 404
+    data = response.json()
+    assert "Stress scenario with name 'Nonexistent Scenario' not found." in data["detail"]
+
+
+def test_get_stress_scenarios_empty(test_client: TestClient):
+    response = test_client.get("/stress-scenarios")
+    assert response.status_code == 200
+    data = response.json()
+    assert data == []
+
+
+def test_get_stress_scenarios(test_client: TestClient):
+    stress_scenario_payload_1 = {
+        "name": "Market Crash",
+        "price_changes": {
+            "AAPL": -0.2,
+            "GOOGL": -0.15,
+        },
+        "description": "A sudden and severe market downturn.",
+    }
+
+    stress_scenario_payload_2 = {
+        "name": "Tech Boom",
+        "price_changes": {
+            "AAPL": 0.3,
+            "GOOGL": 0.25,
+        },
+        "description": "A rapid increase in tech stock prices.",
+    }
+
+    test_client.post("/stress-scenarios", json=stress_scenario_payload_1)
+    test_client.post("/stress-scenarios", json=stress_scenario_payload_2)
+
+    response = test_client.get("/stress-scenarios")
+    assert response.status_code == 200
+    data = response.json()
+
+    scenario_names = [scenario["name"] for scenario in data]
+    assert "Market Crash" in scenario_names
+    assert "Tech Boom" in scenario_names
+
+
+def test_get_stress_scenario_not_found(test_client: TestClient):
+    response = test_client.get("/stress-scenarios/Nonexistent Scenario")
+    assert response.status_code == 404
+    data = response.json()
+    assert "Stress scenario with name 'Nonexistent Scenario' not found." in data["detail"]
+
+
+def test_add_stress_scenario_validation_error(test_client: TestClient):
+    stress_scenario_payload = {
+        "name": "Invalid Scenario",
+        "price_changes": {
+            "AAPL": -1.5,  # Invalid price change (less than -1)
+            "GOOGL": 0.25,
+        },
+        "description": "An invalid stress scenario.",
+    }
+
+    response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
+    assert response.status_code == 422  # FastAPI validation error
+
+
+def test_add_stress_scenario_duplicate_name(test_client: TestClient):
+    stress_scenario_payload = {
+        "name": "Duplicate Scenario",
+        "price_changes": {
+            "AAPL": -0.2,
+            "GOOGL": -0.15,
+        },
+        "description": "A stress scenario with a duplicate name.",
+    }
+
+    response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
+    assert response.status_code == 200
+
+    response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
+    assert response.status_code == 409
+    data = response.json()
+    assert "Stress scenario with name 'Duplicate Scenario' already exists." in data["detail"]
+
+
+def test_update_stress_scenario(test_client: TestClient):
+    stress_scenario_payload = {
+        "name": "Update Scenario",
+        "price_changes": {
+            "AAPL": -0.2,
+            "GOOGL": -0.15,
+        },
+        "description": "A stress scenario to be updated.",
+    }
+
+    response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
+    assert response.status_code == 200
+
+    update_payload = {
+        "price_changes": {
+            "AAPL": -0.1,
+            "GOOGL": -0.05,
+        },
+        "description": "Updated description.",
+    }
+
+    response = test_client.put("/stress-scenarios/Update Scenario", json=update_payload)
+    assert response.status_code == 200
+    updated_scenario = response.json()
+
+    assert updated_scenario["name"] == "Update Scenario"
+    assert updated_scenario["price_changes"] == {"AAPL": -0.1, "GOOGL": -0.05}
+    assert updated_scenario["description"] == "Updated description."
+
+
+def test_update_stress_scenario_not_found(test_client: TestClient):
+    update_payload = {
+        "price_changes": {
+            "AAPL": -0.1,
+            "GOOGL": -0.05,
+        },
+        "description": "Updated description.",
+    }
+
+    response = test_client.put("/stress-scenarios/Nonexistent Scenario", json=update_payload)
+    assert response.status_code == 404
+    data = response.json()
+    assert "Stress scenario with name 'Nonexistent Scenario' not found." in data["detail"]
+
+
+def test_update_stress_scenario_validation_error(test_client: TestClient):
+    stress_scenario_payload = {
+        "name": "Validation Scenario",
+        "price_changes": {
+            "AAPL": -0.2,
+            "GOOGL": -0.15,
+        },
+        "description": "A stress scenario to test validation.",
+    }
+
+    response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
+    assert response.status_code == 200
+
+    update_payload = {
+        "price_changes": {
+            "AAPL": -1.5,  # Invalid price change (less than -1)
+            "GOOGL": -0.05,
+        },
+        "description": "Updated description with invalid price change.",
+    }
+
+    response = test_client.put("/stress-scenarios/Validation Scenario", json=update_payload)
+    assert response.status_code == 422  # FastAPI validation error

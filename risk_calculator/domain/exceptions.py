@@ -25,3 +25,16 @@ class UnknownPositionError(DomainError):
 class UnknownSymbolsError(DomainError):
     def __init__(self, symbols: list[str]):
         super().__init__(f"Unknown symbols in price changes: {symbols}")
+
+
+class UnknownStressScenarioError(DomainError):
+    def __init__(self, name: str):
+        super().__init__(f"Stress scenario with name '{name}' not found.")
+
+
+class InvalidStressScenarioError(DomainError): ...
+
+
+class StressScenarioAlreadyExistsError(DomainError):
+    def __init__(self, name: str):
+        super().__init__(f"Stress scenario with name '{name}' already exists.")
