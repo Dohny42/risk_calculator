@@ -337,14 +337,14 @@ def test_apply_stress_scenario(test_client: TestClient, default_portfolio):
 
 def test_apply_nonexistent_stress_scenario(test_client: TestClient, default_portfolio):
     response = test_client.post("/stress-scenarios/Nonexistent Scenario/apply")
-    assert response.status_code == 404
+    assert response.status_code == 404, response.text
     data = response.json()
     assert "Stress scenario with name 'Nonexistent Scenario' not found." in data["detail"]
 
 
 def test_get_stress_scenarios_empty(test_client: TestClient):
     response = test_client.get("/stress-scenarios")
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     data = response.json()
     assert data == []
 
@@ -372,7 +372,7 @@ def test_get_stress_scenarios(test_client: TestClient):
     test_client.post("/stress-scenarios", json=stress_scenario_payload_2)
 
     response = test_client.get("/stress-scenarios")
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     data = response.json()
 
     scenario_names = [scenario["name"] for scenario in data]
@@ -382,7 +382,7 @@ def test_get_stress_scenarios(test_client: TestClient):
 
 def test_get_stress_scenario_not_found(test_client: TestClient):
     response = test_client.get("/stress-scenarios/Nonexistent Scenario")
-    assert response.status_code == 404
+    assert response.status_code == 404, response.text
     data = response.json()
     assert "Stress scenario with name 'Nonexistent Scenario' not found." in data["detail"]
 
@@ -398,7 +398,7 @@ def test_add_stress_scenario_validation_error(test_client: TestClient):
     }
 
     response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
-    assert response.status_code == 422  # FastAPI validation error
+    assert response.status_code == 422, response.text
 
 
 def test_add_stress_scenario_duplicate_name(test_client: TestClient):
@@ -412,10 +412,10 @@ def test_add_stress_scenario_duplicate_name(test_client: TestClient):
     }
 
     response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
-    assert response.status_code == 409
+    assert response.status_code == 409, response.text
     data = response.json()
     assert "Stress scenario with name 'Duplicate Scenario' already exists." in data["detail"]
 
@@ -431,7 +431,7 @@ def test_update_stress_scenario(test_client: TestClient):
     }
 
     response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     update_payload = {
         "price_changes": {
@@ -442,7 +442,7 @@ def test_update_stress_scenario(test_client: TestClient):
     }
 
     response = test_client.put("/stress-scenarios/Update Scenario", json=update_payload)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     updated_scenario = response.json()
 
     assert updated_scenario["name"] == "Update Scenario"
@@ -460,7 +460,7 @@ def test_update_stress_scenario_not_found(test_client: TestClient):
     }
 
     response = test_client.put("/stress-scenarios/Nonexistent Scenario", json=update_payload)
-    assert response.status_code == 404
+    assert response.status_code == 404, response.text
     data = response.json()
     assert "Stress scenario with name 'Nonexistent Scenario' not found." in data["detail"]
 
@@ -476,7 +476,7 @@ def test_update_stress_scenario_validation_error(test_client: TestClient):
     }
 
     response = test_client.post("/stress-scenarios", json=stress_scenario_payload)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     update_payload = {
         "price_changes": {
@@ -487,4 +487,4 @@ def test_update_stress_scenario_validation_error(test_client: TestClient):
     }
 
     response = test_client.put("/stress-scenarios/Validation Scenario", json=update_payload)
-    assert response.status_code == 422  # FastAPI validation error
+    assert response.status_code == 422, response.text

@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 from risk_calculator.domain.instrument import InstrumentType
@@ -38,9 +40,17 @@ class PortfolioResponse(BaseModel):
     total_margin: float
 
 
+PriceChange = Annotated[float, Field(ge=-1.0, le=10.0)]
+
+
 class StressScenarioCreateRequest(BaseModel):
-    name: str
-    price_changes: dict[str, float]
+    name: str = Field(min_length=1)
+    price_changes: dict[str, PriceChange] = Field(min_length=1)
+    description: str | None = None
+
+
+class StressScenarioUpdateRequest(BaseModel):
+    price_changes: dict[str, PriceChange] = Field(min_length=1)
     description: str | None = None
 
 

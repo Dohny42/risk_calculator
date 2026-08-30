@@ -22,45 +22,51 @@ This project is intentionally evolved **incrementally**. Every new feature is us
 ## What is already implemented
 
 ### Domain
-- `Instrument` (master / static data)
-- `Position` and `Portfolio` (transactional data)
-- Margin calculation based on instrument margin rate
-- Stress scenario application (price shocks)
+- `Instrument` (master / static data: type, margin rate, name)
+- `Position` and `Portfolio` (transactional data; positions reference instruments)
+- Margin calculation from instrument margin rate
+- Stress scenario **definitions** (`StressScenario`) and application (price shocks)
+- Domain exception hierarchy (`DomainError`, unknown instrument/scenario, invalid position, duplicates, …)
 
 ### Architecture
 - Clear separation of layers:
-  - `domain/` – pure business logic
+  - `domain/` – pure business logic + exceptions
   - `repositories/` – persistence (protocols + SQLite implementations)
-  - `services/` – application use cases
-  - `api/` – FastAPI routes, schemas, dependencies
+  - `services/` – application use cases (portfolio, instruments, stress scenarios)
+  - `api/` – FastAPI routes, schemas, dependencies, exception handlers
 - Repository pattern + Dependency Inversion
 - FastAPI dependency injection (`Depends`)
-- Schema creation separated from repositories
+- Schema creation centralized (`create_schema()`), not buried inside each repository
+- Domain errors mapped to HTTP status codes (400 / 404 / 409, …)
 
 ### Persistence
 - SQLite
-- Two main tables: `instruments` and `positions`
-- Foreign key relationship + JOIN when loading a portfolio
-- Central `create_schema()` function
+- Tables: `instruments`, `positions`, `stress_scenarios`
+- Foreign key `positions.symbol` → `instruments.symbol`
+- JOIN when loading a portfolio (positions + instrument attributes)
+- Stress scenario shocks stored as JSON on the scenario row
 
 ### API
-- `POST /instruments`
-- `GET /instruments`
-- `GET /instruments/{symbol}`
-- `GET /portfolio`
-- `POST /positions`
-- `POST /stress`
+- Instruments: `POST /instruments`, `GET /instruments`, `GET /instruments/{symbol}`
+- Portfolio: `GET /portfolio`, `POST /positions`
+- Ad-hoc stress: `POST /stress` (optional raw `price_changes`)
+- Stress scenarios (first-class):
+  - `POST /stress-scenarios` (create; duplicate → 409)
+  - `GET /stress-scenarios`, `GET /stress-scenarios/{name}`
+  - `PUT /stress-scenarios/{name}` (update body without name in path-only identity)
+  - `POST /stress-scenarios/{name}/apply` (apply stored scenario to current portfolio)
+- Request validation (e.g. bounded `price_changes`, separate create vs update schemas)
 
 ### Testing
 - Domain tests
-- Repository tests (including JOIN behaviour)
+- Repository tests (including JOIN and scenario persistence)
 - API tests with `TestClient` + dependency overrides
-- Factory-style fixtures for explicit test setup
+- Factory-style fixtures for explicit setup (instruments, positions, scenarios)
 
 ### Configuration
 - Central `Settings` via pydantic-settings
 - Environment variables + optional `.env`
-- No hard-coded database paths in services/API wiring
+- Cached `get_settings()`; no hard-coded DB paths in wiring
 
 ---
 
@@ -69,16 +75,18 @@ This project is intentionally evolved **incrementally**. Every new feature is us
 The project will continue to grow in controlled steps. Each step should teach something concrete.
 
 ### Near-term features
-- Better error handling and domain exceptions
-- Portfolio snapshots / history
-- Multiple portfolios or accounts
-- Richer instrument model (currency, multiplier, etc.)
-- More realistic stress testing (scenarios as first-class entities)
+- [x] Better error handling and domain exceptions
+- [x] Configuration management (settings, environments)
+- [x] More realistic stress testing (scenarios as first-class entities)
+- [ ] Portfolio snapshots / history
+- [ ] Multiple portfolios or accounts
+- [ ] Richer instrument model (currency, multiplier, etc.)
 
 ### Engineering concepts to practice next
-- More advanced SQL (joins, subqueries, aggregations, indexes)
+- More advanced SQL (subqueries, aggregations, indexes; optional normalized shock table)
 - Richer test data management and reproducibility
-- Configuration management (settings, environments)
+- Observability basics (structured logging, request IDs, health checks)
+- (Later) Database migrations — see note below
 
 ### Production-oriented topics (later increments)
 These will be introduced gradually when the core application is stable enough:
@@ -90,7 +98,15 @@ These will be introduced gradually when the core application is stable enough:
 - **Data analysis** – simple reporting, analytics endpoints or notebooks
 - **Async** – async repositories / endpoints where it makes sense
 - **Real-time aspects** – market data updates, streaming, or simple event-driven flows
-- **Observability basics** - logging, structured logs, health checks
+- **Observability basics** – logging, structured logs, health checks
+
+### Note on migrations (Alembic)
+We skipped formal migrations so far in favour of `create_schema()`. That is fine while the schema is small and local-only. Migrations become important when:
+- multiple environments must upgrade safely,
+- you cannot wipe the DB,
+- schema changes must be ordered, reversible, and reviewable in a team.
+
+Worth adding after snapshots or before PostgreSQL/Docker — not before the domain is stable.
 
 ---
 
@@ -117,16 +133,16 @@ These will be introduced gradually when the core application is stable enough:
 
 ```text
 risk_calculator/
-├── domain/                 # Business logic
+├── domain/                 # Business logic + exceptions
 ├── repositories/           # Persistence (protocols + SQLite)
 ├── services/               # Use cases
-├── api/                    # FastAPI (routes, schemas, dependencies)
+├── api/                    # FastAPI (routes, schemas, dependencies, handlers)
+├── config.py               # Settings
 ├── main.py
 tests/
 ├── domain/
 ├── repositories/
 └── api/
-```
 
 ---
 

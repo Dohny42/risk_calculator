@@ -6,6 +6,7 @@ from risk_calculator.api.schemas import (
     PortfolioResponse,
     StressScenarioCreateRequest,
     StressScenarioResponse,
+    StressScenarioUpdateRequest,
 )
 from risk_calculator.domain.stress import StressScenario
 from risk_calculator.services.portfolio_service import PortfolioService
@@ -62,10 +63,11 @@ def apply_stress_scenario(
 
 @router.put("/stress-scenarios/{name}", response_model=StressScenarioResponse)
 def update_stress_scenario(
-    stress_scenario: StressScenarioCreateRequest,
+    name: str,
+    stress_scenario: StressScenarioUpdateRequest,
     service: StressScenarioService = Depends(get_stress_scenario_service),
 ):
     updated_scenario = service.update(
-        stress_scenario.name, stress_scenario.price_changes, stress_scenario.description
+        name, stress_scenario.price_changes, stress_scenario.description
     )
     return to_stress_scenario_response(updated_scenario)
