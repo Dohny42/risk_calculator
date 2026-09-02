@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, Field
@@ -58,3 +59,17 @@ class StressScenarioResponse(BaseModel):
     name: str
     price_changes: dict[str, float]
     description: str | None = None
+
+
+class PortfolioSnapshotCreateRequest(BaseModel):
+    label: str | None = None
+    source: str | None = None
+
+
+class PortfolioSnapshotResponse(BaseModel):
+    timestamp: datetime
+    positions: list[PositionResponse]
+    total_value: float
+    total_margin: float
+    source: str
+    label: str | None = None

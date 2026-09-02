@@ -34,7 +34,7 @@ def to_portfolio_response(portfolio: Portfolio) -> PortfolioResponse:
 @router.get("/portfolio", response_model=PortfolioResponse)
 def get_portfolio(
     service: PortfolioService = Depends(get_portfolio_service),
-):
+) -> PortfolioResponse:
     portfolio = service.get_portfolio()
     return to_portfolio_response(portfolio)
 
@@ -43,6 +43,6 @@ def get_portfolio(
 def add_position(
     position: PositionCreateRequest,
     portfolio_service: PortfolioService = Depends(get_portfolio_service),
-):
+) -> PortfolioResponse:
     portfolio = portfolio_service.add_position(position.symbol, position.quantity, position.price)
     return to_portfolio_response(portfolio)

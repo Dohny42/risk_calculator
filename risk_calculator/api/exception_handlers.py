@@ -7,6 +7,7 @@ from risk_calculator.domain.exceptions import (
     InvalidStressScenarioError,
     StressScenarioAlreadyExistsError,
     UnknownInstrumentError,
+    UnknownPortfolioSnapshotError,
     UnknownStressScenarioError,
     UnknownSymbolsError,
 )
@@ -38,6 +39,12 @@ def add_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: StressScenarioAlreadyExistsError
     ):
         return JSONResponse(status_code=409, content={"detail": exc.message})
+
+    @app.exception_handler(UnknownPortfolioSnapshotError)
+    async def unknown_portfolio_snapshot_handler(
+        request: Request, exc: UnknownPortfolioSnapshotError
+    ):
+        return JSONResponse(status_code=404, content={"detail": exc.message})
 
     @app.exception_handler(DomainError)
     async def domain_error_handler(request: Request, exc: DomainError):

@@ -38,3 +38,8 @@ class InvalidStressScenarioError(DomainError): ...
 class StressScenarioAlreadyExistsError(DomainError):
     def __init__(self, name: str):
         super().__init__(f"Stress scenario with name '{name}' already exists.")
+
+
+class UnknownPortfolioSnapshotError(DomainError):
+    def __init__(self, snapshot_id: str):
+        super().__init__(f"Portfolio snapshot with ID '{snapshot_id}' not found.")
