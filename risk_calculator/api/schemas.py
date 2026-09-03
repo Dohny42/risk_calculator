@@ -62,11 +62,12 @@ class StressScenarioResponse(BaseModel):
 
 
 class PortfolioSnapshotCreateRequest(BaseModel):
+    source: str = "live"
     label: str | None = None
-    source: str | None = None
 
 
 class PortfolioSnapshotResponse(BaseModel):
+    id: str
     timestamp: datetime
     positions: list[PositionResponse]
     total_value: float

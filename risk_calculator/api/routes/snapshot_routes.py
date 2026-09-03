@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 
-from risk_calculator.api.dependencies import get_snapshot_service
+from risk_calculator.api.dependencies import get_portfolio_snapshot_service
 from risk_calculator.api.schemas import (
+    PortfolioSnapshotCreateRequest,
     PortfolioSnapshotResponse,
     PositionResponse,
 )
@@ -13,6 +14,7 @@ router = APIRouter()
 
 def to_portfolio_snapshot_response(snapshot: PortfolioSnapshot) -> PortfolioSnapshotResponse:
     return PortfolioSnapshotResponse(
+        id=snapshot.id,
         timestamp=snapshot.timestamp,
         positions=[
             PositionResponse(
@@ -34,7 +36,7 @@ def to_portfolio_snapshot_response(snapshot: PortfolioSnapshot) -> PortfolioSnap
 
 @router.get("/snapshots", response_model=list[PortfolioSnapshotResponse])
 def list_snapshots(
-    snapshot_service: PortfolioSnapshotService = Depends(get_snapshot_service),
+    snapshot_service: PortfolioSnapshotService = Depends(get_portfolio_snapshot_service),
 ) -> list[PortfolioSnapshotResponse]:
     snapshots = snapshot_service.list_snapshots()
     return [to_portfolio_snapshot_response(snapshot) for snapshot in snapshots]
@@ -43,7 +45,7 @@ def list_snapshots(
 @router.get("/snapshots/{snapshot_id}", response_model=PortfolioSnapshotResponse)
 def get_snapshot(
     snapshot_id: str,
-    snapshot_service: PortfolioSnapshotService = Depends(get_snapshot_service),
+    snapshot_service: PortfolioSnapshotService = Depends(get_portfolio_snapshot_service),
 ) -> PortfolioSnapshotResponse:
     snapshot = snapshot_service.get_snapshot(snapshot_id)
     return to_portfolio_snapshot_response(snapshot)
@@ -51,9 +53,25 @@ def get_snapshot(
 
 @router.post("/snapshots", response_model=PortfolioSnapshotResponse)
 def create_snapshot(
-    snapshot_service: PortfolioSnapshotService = Depends(get_snapshot_service),
-    source: str = "live",
-    label: str | None = None,
+    snapshot_create: PortfolioSnapshotCreateRequest,
+    snapshot_service: PortfolioSnapshotService = Depends(get_portfolio_snapshot_service),
 ) -> PortfolioSnapshotResponse:
-    snapshot = snapshot_service.create_snapshot(source, label)
+    snapshot = snapshot_service.create_snapshot(
+        source=snapshot_create.source,
+        label=snapshot_create.label,
+    )
+    return to_portfolio_snapshot_response(snapshot)
+
+
+@router.put("/snapshots/{snapshot_id}", response_model=PortfolioSnapshotResponse)
+def update_snapshot(
+    snapshot_id: str,
+    snapshot_update: PortfolioSnapshotCreateRequest,
+    snapshot_service: PortfolioSnapshotService = Depends(get_portfolio_snapshot_service),
+) -> PortfolioSnapshotResponse:
+    snapshot = snapshot_service.update(
+        snapshot_id,
+        source=snapshot_update.source,
+        label=snapshot_update.label,
+    )
     return to_portfolio_snapshot_response(snapshot)

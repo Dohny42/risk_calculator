@@ -27,7 +27,10 @@ class PortfolioSnapshotService:
     def list_snapshots(self) -> list[PortfolioSnapshot]:
         return self.snapshot_repository.get_all()
 
-    def update(self, snapshot_id: str, source: str | None = None, label: str | None = None) -> None:
+    def update(
+        self, snapshot_id: str, source: str | None = None, label: str | None = None
+    ) -> PortfolioSnapshot:
         updated_rows_count = self.snapshot_repository.update(snapshot_id, source, label)
         if updated_rows_count == 0:
             raise UnknownPortfolioSnapshotError(snapshot_id)
+        return self.get_snapshot(snapshot_id)

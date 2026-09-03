@@ -25,10 +25,10 @@ def get_stress_scenario_service() -> StressScenarioService:
     return StressScenarioService(stress_scenario_repository)
 
 
-def get_snapshot_service() -> PortfolioSnapshotService:
-    snapshot_repository = SQLitePortfolioSnapshotRepository(get_settings().db_path)
+def get_portfolio_snapshot_service() -> PortfolioSnapshotService:
     portfolio_repository = SQLitePortfolioRepository(get_settings().db_path)
+    portfolio_snapshot_repository = SQLitePortfolioSnapshotRepository(get_settings().db_path)
     return PortfolioSnapshotService(
         portfolio_repository=portfolio_repository,
-        snapshot_repository=snapshot_repository,
+        snapshot_repository=portfolio_snapshot_repository,
     )

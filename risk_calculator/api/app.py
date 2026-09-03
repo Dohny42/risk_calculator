@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from risk_calculator.api.exception_handlers import add_exception_handlers
 from risk_calculator.api.routes.instruments_routes import router as instruments_router
 from risk_calculator.api.routes.portfolio_routes import router as portfolio_router
+from risk_calculator.api.routes.snapshot_routes import router as snapshot_router
 from risk_calculator.api.routes.stress_routes import router as stress_router
 from risk_calculator.config import get_settings
 from risk_calculator.repositories.sqlite.db_schema import create_schema
@@ -23,6 +24,7 @@ add_exception_handlers(app)
 app.include_router(instruments_router)
 app.include_router(portfolio_router)
 app.include_router(stress_router)
+app.include_router(snapshot_router)
 
 
 @app.get("/")

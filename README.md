@@ -27,6 +27,7 @@ This project is intentionally evolved **incrementally**. Every new feature is us
 - Margin calculation from instrument margin rate
 - Stress scenario **definitions** (`StressScenario`) and application (price shocks)
 - Domain exception hierarchy (`DomainError`, unknown instrument/scenario, invalid position, duplicates, …)
+- Portfolio snapshots (point-in-time copy of positions + totals; label/source metadata)
 
 ### Architecture
 - Clear separation of layers:
@@ -45,6 +46,8 @@ This project is intentionally evolved **incrementally**. Every new feature is us
 - Foreign key `positions.symbol` → `instruments.symbol`
 - JOIN when loading a portfolio (positions + instrument attributes)
 - Stress scenario shocks stored as JSON on the scenario row
+- Tables: instruments, positions, stress_scenarios, portfolio_snapshots, portfolio_snapshot_positions
+- Snapshot positions copy instrument fields (type, margin rate) so history does not change when master data changes
 
 ### API
 - Instruments: `POST /instruments`, `GET /instruments`, `GET /instruments/{symbol}`
@@ -56,6 +59,12 @@ This project is intentionally evolved **incrementally**. Every new feature is us
   - `PUT /stress-scenarios/{name}` (update body without name in path-only identity)
   - `POST /stress-scenarios/{name}/apply` (apply stored scenario to current portfolio)
 - Request validation (e.g. bounded `price_changes`, separate create vs update schemas)
+- Snapshots:
+   - `POST /snapshots` — snapshot current portfolio
+   - `GET /snapshots` — list snapshots
+   - `GET /snapshots/{id}` — full snapshot
+   - `PUT /snapshots/{id}` — update label/source
+
 
 ### Testing
 - Domain tests
@@ -78,7 +87,7 @@ The project will continue to grow in controlled steps. Each step should teach so
 - [x] Better error handling and domain exceptions
 - [x] Configuration management (settings, environments)
 - [x] More realistic stress testing (scenarios as first-class entities)
-- [ ] Portfolio snapshots / history
+- [x] Portfolio snapshots / history
 - [ ] Multiple portfolios or accounts
 - [ ] Richer instrument model (currency, multiplier, etc.)
 

@@ -8,14 +8,17 @@ from risk_calculator.api.app import app
 from risk_calculator.api.dependencies import (
     get_instrument_service,
     get_portfolio_service,
+    get_portfolio_snapshot_service,
     get_stress_scenario_service,
 )
 from risk_calculator.repositories.sqlite.db_schema import create_schema
 from risk_calculator.repositories.sqlite.instrument import SQLiteInstrumentRepository
 from risk_calculator.repositories.sqlite.portfolio import SQLitePortfolioRepository
+from risk_calculator.repositories.sqlite.snapshot import SQLitePortfolioSnapshotRepository
 from risk_calculator.repositories.sqlite.stress_scenario import SQLiteStressScenarioRepository
 from risk_calculator.services.instrument_service import InstrumentService
 from risk_calculator.services.portfolio_service import PortfolioService
+from risk_calculator.services.snapshot_service import PortfolioSnapshotService
 from risk_calculator.services.stress_service import StressScenarioService
 
 
@@ -42,9 +45,17 @@ def test_client(temp_db_path: Path) -> Generator[TestClient]:
         stress_scenario_repository = SQLiteStressScenarioRepository(db_path=temp_db_path)
         return StressScenarioService(stress_scenario_repository)
 
+    def override_get_portfolio_snapshot_service() -> PortfolioSnapshotService:
+        portfolio_repository = SQLitePortfolioRepository(db_path=temp_db_path)
+        portfolio_snapshot_repository = SQLitePortfolioSnapshotRepository(db_path=temp_db_path)
+        return PortfolioSnapshotService(portfolio_repository, portfolio_snapshot_repository)
+
     app.dependency_overrides[get_instrument_service] = override_get_instrument_service
     app.dependency_overrides[get_portfolio_service] = override_get_portfolio_service
     app.dependency_overrides[get_stress_scenario_service] = override_get_stress_scenario_service
+    app.dependency_overrides[get_portfolio_snapshot_service] = (
+        override_get_portfolio_snapshot_service
+    )
     with TestClient(app) as client:
         yield client
 
@@ -488,3 +499,98 @@ def test_update_stress_scenario_validation_error(test_client: TestClient):
 
     response = test_client.put("/stress-scenarios/Validation Scenario", json=update_payload)
     assert response.status_code == 422, response.text
+
+
+# --------- Portfolio snapshots ---------
+
+
+def test_get_empty_portfolio_snapshots(test_client: TestClient):
+    response = test_client.get("/snapshots")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data == []
+
+
+def test_create_portfolio_snapshot(test_client: TestClient, default_portfolio: None):
+    create_payload = {
+        "source": "live",
+        "label": "Initial Snapshot",
+    }
+
+    response = test_client.post("/snapshots", json=create_payload)
+    assert response.status_code == 200, response.text
+    snapshot = response.json()
+
+    assert snapshot["source"] == "live"
+    assert snapshot["label"] == "Initial Snapshot"
+
+
+def test_get_portfolio_snapshot(test_client: TestClient, default_portfolio: None):
+    # First, create a snapshot to ensure there is one to retrieve
+    create_payload = {
+        "source": "live",
+        "label": "Snapshot to Retrieve",
+    }
+    create_response = test_client.post("/snapshots", json=create_payload)
+    assert create_response.status_code == 200, create_response.text
+    created_snapshot = create_response.json()
+
+    snapshot_id = created_snapshot["id"]
+    response = test_client.get(f"/snapshots/{snapshot_id}")
+    assert response.status_code == 200, response.text
+    snapshot = response.json()
+    assert snapshot["source"] == "live"
+    assert snapshot["label"] == "Snapshot to Retrieve"
+
+
+def test_get_multiple_portfolio_snapshots(test_client: TestClient, default_portfolio: None):
+    for i in range(3):
+        create_payload = {
+            "source": "live",
+            "label": f"Snapshot {i + 1}",
+        }
+        create_response = test_client.post("/snapshots", json=create_payload)
+        assert create_response.status_code == 200, create_response.text
+
+    response = test_client.get("/snapshots")
+    assert response.status_code == 200, response.text
+    snapshots = response.json()
+    assert len(snapshots) == 3
+    labels = [snapshot["label"] for snapshot in snapshots]
+    for i in range(3):
+        assert f"Snapshot {i + 1}" in labels
+
+
+def test_get_nonexistent_portfolio_snapshot(test_client: TestClient):
+    response = test_client.get("/snapshots/nonexistent-id")
+    assert response.status_code == 404, response.text
+
+
+def test_update_portfolio_snapshot(test_client: TestClient, default_portfolio: None):
+    create_payload = {
+        "source": "live",
+        "label": "Snapshot to Update",
+    }
+    create_response = test_client.post("/snapshots", json=create_payload)
+    assert create_response.status_code == 200, create_response.text
+    created_snapshot = create_response.json()
+
+    snapshot_id = created_snapshot["id"]
+    update_payload = {
+        "source": "live",
+        "label": "Updated Snapshot",
+    }
+    update_response = test_client.put(f"/snapshots/{snapshot_id}", json=update_payload)
+    assert update_response.status_code == 200, update_response.text
+    updated_snapshot = update_response.json()
+    assert updated_snapshot["source"] == "live"
+    assert updated_snapshot["label"] == "Updated Snapshot"
+
+
+def test_update_nonexistent_portfolio_snapshot(test_client: TestClient):
+    update_payload = {
+        "source": "live",
+        "label": "Updated Snapshot",
+    }
+    update_response = test_client.put("/snapshots/nonexistent-id", json=update_payload)
+    assert update_response.status_code == 404, update_response.text
