@@ -1,3 +1,5 @@
+from loguru import logger
+
 from risk_calculator.domain.exceptions import UnknownPortfolioSnapshotError
 from risk_calculator.domain.snapshot import PortfolioSnapshot, create_portfolio_snapshot
 from risk_calculator.repositories.protocols import PortfolioRepository, PortfolioSnapshotRepository
@@ -15,6 +17,15 @@ class PortfolioSnapshotService:
     def create_snapshot(self, source: str = "live", label: str | None = None) -> PortfolioSnapshot:
         portfolio = self.portfolio_repository.get()
         snapshot = create_portfolio_snapshot(portfolio, source, label)
+
+        logger.bind(
+            snapshot_id=snapshot.id,
+            source=source,
+            label=label,
+            position_count=len(snapshot.positions),
+            total_value=snapshot.total_value,
+        ).info(f"Created snapshot {snapshot.id}")
+
         self.snapshot_repository.save(snapshot)
         return snapshot
 

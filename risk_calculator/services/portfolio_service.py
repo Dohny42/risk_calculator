@@ -1,3 +1,5 @@
+from loguru import logger
+
 from risk_calculator.domain.exceptions import UnknownInstrumentError
 from risk_calculator.domain.portfolio import Portfolio, Position, apply_stress_scenario
 from risk_calculator.repositories.protocols import InstrumentRepository, PortfolioRepository
@@ -21,6 +23,11 @@ class PortfolioService:
         position = Position(instrument=instrument, quantity=quantity, price=price)
         portfolio = self.get_portfolio()
         portfolio.add_position(position)
+
+        logger.bind(symbol=symbol, quantity=quantity, price=price).info(
+            f"Added position: {symbol} with quantity {quantity} at price {price}"
+        )
+
         self.portfolio_repository.save(portfolio)
         return portfolio
 

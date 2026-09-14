@@ -1,6 +1,8 @@
+import sys
 from functools import lru_cache
 from pathlib import Path
 
+from loguru import logger
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,6 +16,8 @@ class Settings(BaseSettings):
 
     # --- Application ---
     app_name: str = "Risk Calculator API"
+    log_level: str = "INFO"
+    log_json: bool = False
 
     # --- Database ---
     db_path: Path = Field(
@@ -25,3 +29,16 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def setup_logging(settings: Settings) -> None:
+    logger.remove()
+
+    if settings.log_json:
+        logger.add(sys.stdout, level=settings.log_level, serialize=True)
+    else:
+        logger.add(
+            sink=sys.stdout,
+            level=settings.log_level,
+            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <level>{message}</level>",
+        )

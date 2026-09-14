@@ -1,3 +1,5 @@
+from loguru import logger
+
 from risk_calculator.domain.exceptions import UnknownInstrumentError
 from risk_calculator.domain.instrument import Instrument, InstrumentType
 from risk_calculator.repositories.protocols import InstrumentRepository
@@ -21,6 +23,9 @@ class InstrumentService:
             name=name,
         )
         self.instrument_repository.save(instrument)
+        logger.bind(
+            symbol=symbol, instrument_type=instrument_type, margin_rate=margin_rate, name=name
+        ).info(f"Created instrument {symbol}")
         return instrument
 
     def get_instrument(self, symbol: str) -> Instrument:
