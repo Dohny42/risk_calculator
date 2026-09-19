@@ -77,6 +77,13 @@ This project is intentionally evolved **incrementally**. Every new feature is us
 - Environment variables + optional `.env`
 - Cached `get_settings()`; no hard-coded DB paths in wiring
 
+
+### Observability
+- Loguru with optional JSON serialization (`LOG_JSON`)
+- Log level via `LOG_LEVEL`
+- Request middleware: `request_id`, method, path, status, duration
+- Service events with structured fields (e.g. `Snapshot created`)
+
 ---
 
 ## Mid-term plan (features + concepts)
@@ -191,15 +198,9 @@ The `get_settings()` function is cached so the process uses a single settings ob
 
 ### Main settings
 
-| Setting       | Env var       | Default         | Description                  |
-|---------------|---------------|-----------------|------------------------------|
-| `app_name`    | `APP_NAME`    | Risk Calculator API | API title                 |
-| `db_path`     | `DB_PATH`     | `portfolio.db`  | SQLite database path         |
-
-### Local development
-
-Create a `.env` file in the project root (it is git-ignored):
-
-```env
-APP_NAME="Custom User Title"
-DB_PATH=path/to/usr/db_file.db
+| Setting    | Env var    | Default               | Description                                      |
+|------------|------------|-----------------------|--------------------------------------------------|
+| `app_name` | `APP_NAME` | `Risk Calculator API` | API title                                        |
+| `db_path`  | `DB_PATH`  | `portfolio.db`        | SQLite database path                             |
+| `log_json` | `LOG_JSON` | `False`               | Enable JSON serialization for structured logs    |
+| `log_level`| `LOG_LEVEL`| `INFO`                | Default logging level                            |
